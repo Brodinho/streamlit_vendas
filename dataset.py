@@ -96,6 +96,44 @@ df_spark = df_spark.select([col(c) for c in ordem_colunas])
 # Converter para Pandas DataFrame
 df = df_spark.toPandas()
 
+# Dicionário contendo todos os Estados do Brasil e suas respectivas coordenadas.
+coordenadas = {
+    "AC": {"latitude": -8.77, "longitude": -70.55},
+    "AL": {"latitude": -9.62, "longitude": -36.82},
+    "AP": {"latitude": 1.41, "longitude": -51.77},
+    "AM": {"latitude": -3.47, "longitude": -65.10},
+    "BA": {"latitude": -12.96, "longitude": -38.51},
+    "CE": {"latitude": -3.71, "longitude": -38.54},
+    "DF": {"latitude": -15.83, "longitude": -47.86},
+    "ES": {"latitude": -19.19, "longitude": -40.34},
+    "GO": {"latitude": -16.64, "longitude": -49.31},
+    "MA": {"latitude": -2.55, "longitude": -44.30},
+    "MT": {"latitude": -12.64, "longitude": -55.42},
+    "MS": {"latitude": -20.44, "longitude": -54.65},
+    "MG": {"latitude": -18.10, "longitude": -44.38},
+    "PA": {"latitude": -3.13, "longitude": -52.29},
+    "PB": {"latitude": -7.06, "longitude": -35.55},
+    "PR": {"latitude": -24.89, "longitude": -51.55},
+    "PE": {"latitude": -8.28, "longitude": -35.07},
+    "PI": {"latitude": -8.28, "longitude": -43.68},
+    "RJ": {"latitude": -22.84, "longitude": -43.15},
+    "RN": {"latitude": -5.22, "longitude": -36.52},
+    "RS": {"latitude": -30.01, "longitude": -51.22},
+    "RO": {"latitude": -11.22, "longitude": -62.80},
+    "RR": {"latitude": 1.89, "longitude": -61.22},
+    "SC": {"latitude": -27.33, "longitude": -49.44},
+    "SP": {"latitude": -23.55, "longitude": -46.63},
+    "SE": {"latitude": -10.90, "longitude": -37.07},
+    "TO": {"latitude": -10.18, "longitude": -48.33},
+}
+
+# Inserindo as colunas de latitude e longitude no DataFrame com base na coluna 'uf'
+# Obs.: O método map do Pandas serve para aplicar o mapeamento linha por linha, ou seja,
+# ele aplica uma função (ou mapeamento) para cada valor da coluna uf.
+df['latitude'] = df['uf'].map(lambda x: coordenadas[x]['latitude'] if x in coordenadas else None)
+df['longitude'] = df['uf'].map(lambda x: coordenadas[x]['longitude'] if x in coordenadas else None)
+
+
 df.index = df.index + 1
 df.style.set_properties(**{'text-align':'center'}, subset=['valoruni'])
 
@@ -123,6 +161,7 @@ print(df["valoriss"].unique())
 df.info()
 
 print(df[['sequencial','filial','razao','data', 'emissao','valorfaturado']].head(5))
+print(df[['uf', 'latitude', 'longitude']].head(20))
 
 response.close()
 spark.stop()

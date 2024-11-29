@@ -3,7 +3,8 @@ import streamlit as st
 import plotly.express as px
 from dataset import df
 from PIL import Image
-from functions import formata_colunas_monetarias
+from utils import formata_colunas_monetarias
+from grafics import graf_rec_estado
 
 backgroundColor = "000000"
 
@@ -78,6 +79,7 @@ with aba2:
     with coluna1:
         total_faturamento = df['valorNota'].sum()
         st.metric('FATURAMENTO TOTAL', f"R$ {total_faturamento:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        st.plotly_chart(graf_rec_estado, use_container_width=True)
     with coluna2:
         qtd_vendas = df.groupby("nota").size().reset_index(name="qtd_vendas")
         total_vendas = qtd_vendas["qtd_vendas"].sum()
