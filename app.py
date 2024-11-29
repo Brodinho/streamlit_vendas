@@ -7,13 +7,19 @@ from functions import formata_colunas_monetarias
 
 backgroundColor = "000000"
 
-image = Image.open('imagens/sales-64x64.png')
+image = Image.open('imagens/sales.png')
 
 # st.set_page_config(layout='wide')
 # Definir o tema como dark
-st.set_page_config(page_title="Dashboard de Vendas", layout='wide', initial_sidebar_state='expanded')
-st.image(image)
-st.title("Dashboard de Vendas")
+st.set_page_config(page_title="Dashboard de Vendas", layout='wide', page_icon="📊", initial_sidebar_state='expanded')
+
+# Dividir o layout em duas colunas
+col1, col2 = st.columns([1, 6])  # Ajuste os pesos das colunas conforme necessário
+with col1:
+    st.image(image, use_container_width=True)
+with col2:
+    st.title("Dashboard de Vendas")
+    st.subheader("E m p r e s a m i x")
 
 colunas_monetarias = ["valorfaturado", "valoruni", "valoripi", "valoruni", "valoricms", "valoriss", "valorSubs", "valorFrete",
                       "valorNota", "valorContabil", "retVlrPis", "retVlrCofins", "retVlrCsll", "valorPis", "valorCofins",
@@ -36,9 +42,20 @@ with aba1:
     df["descricaoTipoOs"] = df["descricaoTipoOs"].fillna("N/C")
     df["regiao"]      = df["regiao"].fillna("N/C")
 
-    # Deixar datas no formato pt-br
+    # Configuração da paginação
+    linhas_por_pagina = st.number_input("Linhas por página", min_value=5, max_value=50, value=10, step=5)
+    total_paginas = (len(df) // linhas_por_pagina) + (1 if len(df) % linhas_por_pagina != 0 else 0)
+    pagina = st.number_input("Página", min_value=1, max_value=(len(df) // linhas_por_pagina) + 1, value=1, step=1)
+    st.write(f"Total de páginas: {total_paginas}")
+    inicio = (pagina - 1) * linhas_por_pagina
+    fim = inicio + linhas_por_pagina
+
+    # Exibição da página atual
+    pagina_df = df.iloc[inicio:fim]
+
+    # Aplicar estilos no formato pt-br no dataframe
     st.dataframe(
-        df.style.format(
+        pagina_df.style.format(
             {
                 # Aplica a formatação nas colunas data
                 "data": lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "",
@@ -61,5 +78,8 @@ with aba2:
     with coluna1:
         total_faturamento = df['valorNota'].sum()
         st.metric('FATURAMENTO TOTAL', f"R$ {total_faturamento:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        # st.metric('FATURAMENTO TOTAL', f"R$ {df['valorNota'].sum():,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    with coluna2:
+        qtd_vendas = df.groupby("nota").size().reset_index(name="qtd_vendas")
+        total_vendas = qtd_vendas["qtd_vendas"].sum()
+        st.metric("Total de vendas: ", total_vendas)
 
