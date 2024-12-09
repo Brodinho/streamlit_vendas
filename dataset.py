@@ -154,14 +154,5 @@ df["grupo"]    = df["grupo"].replace('none', 'N/C')
 df['data'] = pd.to_datetime(df['data'], errors='coerce')
 df['emissao'] = pd.to_datetime(df['emissao'], errors='coerce')
 
-print("Comando df['valorNota'].unique():\n")
-print(df["valorNota"].unique())
-print("VALOR ISS:")
-print(df["valoriss"].unique())
-df.info()
-
-print(df[['sequencial','filial','razao','data', 'emissao','valorfaturado']].head(5))
-print(df[['uf', 'latitude', 'longitude']].head(20))
-
 response.close()
 spark.stop()

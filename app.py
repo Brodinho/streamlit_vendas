@@ -3,14 +3,11 @@ import streamlit as st
 import plotly.express as px
 from dataset import df
 from PIL import Image
-from utils import formata_colunas_monetarias
-from grafics import graf_rec_estado
-
-backgroundColor = "000000"
+from utils import formata_colunas_monetarias, formatar_valor, formatar_moeda
+from grafics import graf_map_estado, graflinha_fat_mensal, grafbar_fat_estado, graf_fat_categoria
 
 image = Image.open('imagens/sales.png')
 
-# st.set_page_config(layout='wide')
 # Definir o tema como dark
 st.set_page_config(page_title="Dashboard de Vendas", layout='wide', page_icon="📊", initial_sidebar_state='expanded')
 
@@ -43,6 +40,17 @@ with aba1:
     df["descricaoTipoOs"] = df["descricaoTipoOs"].fillna("N/C")
     df["regiao"]      = df["regiao"].fillna("N/C")
 
+# Aplicando o CSS para ajustar a largura do input
+
+    st.markdown("""
+        <style>
+        /* Ajusta a largura do input completo */
+        input {
+            width: 150px;  /* Ajuste a largura conforme necessário */
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
     # Configuração da paginação
     linhas_por_pagina = st.number_input("Linhas por página", min_value=5, max_value=50, value=10, step=5)
     total_paginas = (len(df) // linhas_por_pagina) + (1 if len(df) % linhas_por_pagina != 0 else 0)
@@ -61,14 +69,6 @@ with aba1:
                 # Aplica a formatação nas colunas data
                 "data": lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "",
                 "emissao": lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "",
-                # Aplica a formatação nas colunas monetárias
-                **{col: lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") for col in colunas_monetarias}
-                
-                # Trunca as colunas para apenas duas casas decimais
-                # "valorfaturado": lambda x: f"{math.floor(x * 100) / 100:.2f}" if pd.notnull(x) else "",
-                # "valorNota": lambda x: f"{math.floor(x * 100) / 100:.2f}" if pd.notnull(x) else "",
-                # "valoruni": lambda x: f"{math.floor(x * 100) / 100:.2f}" if pd.notnull(x) else "",
-                # "quant": lambda x: f"{math.floor(x * 100) / 100:.2f}" if pd.notnull(x) else ""
                 }
             )
         )
@@ -78,10 +78,13 @@ with aba2:
     coluna1, coluna2 = st.columns(2)
     with coluna1:
         total_faturamento = df['valorNota'].sum()
-        st.metric('FATURAMENTO TOTAL', f"R$ {total_faturamento:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        st.plotly_chart(graf_rec_estado, use_container_width=True)
+        st.metric('FATURAMENTO TOTAL', formatar_moeda(total_faturamento))
+        st.plotly_chart(graf_map_estado, use_container_width=True)
+        st.plotly_chart(grafbar_fat_estado, use_container_width=True)
     with coluna2:
-        qtd_vendas = df.groupby("nota").size().reset_index(name="qtd_vendas")
-        total_vendas = qtd_vendas["qtd_vendas"].sum()
+        qtd_total_vendas = df.groupby("nota").size().reset_index(name="qtd_vendas")
+        total_vendas = f'{qtd_total_vendas["qtd_vendas"].sum()} Unidades'
         st.metric("Total de vendas: ", total_vendas)
+        st.plotly_chart(graflinha_fat_mensal, use_container_width=True)
+        st.plotly_chart(graf_fat_categoria, use_container_width=True)
 
