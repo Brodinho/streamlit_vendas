@@ -12,6 +12,10 @@ image = Image.open('imagens/sales.png')
 # Definir o tema como dark
 st.set_page_config(page_title="Dashboard de Vendas", layout='wide', page_icon="📊", initial_sidebar_state='expanded')
 
+# st.write("Verificação de datas:")
+# st.write("Tipos de dados na coluna 'data':", df['data'].dtype)
+# st.write("Valores únicos na coluna 'data':", df['data'].unique())
+
 # Dividir o layout em duas colunas
 col1, col2 = st.columns([1, 6])  # Ajuste os pesos das colunas conforme necessário
 with col1:
@@ -76,37 +80,53 @@ with aba1:
 
     # st.dataframe(df)
 with aba2:
-    # Criar um multiselect para os anos
-    anos_disponiveis = sorted(df['data'].dt.year.unique())
-    anos_selecionados = st.multiselect(
-        'Selecione o(s) ano(s):', 
-        anos_disponiveis,
-        default=anos_disponiveis
-    )
-    
-    # Filtrar o DataFrame com base nos anos selecionados
-    df_filtrado = df[df['data'].dt.year.isin(anos_selecionados)]
-    
-    coluna1, coluna2 = st.columns(2)
-    with coluna1:
-        total_faturamento = df_filtrado['valorNota'].sum()
-        st.metric('FATURAMENTO TOTAL', formatar_moeda(total_faturamento))
+    try:
+        # Remover registros com data nula antes de processar os anos
+        df_datas_validas = df[df['data'].notna()]
         
-        # Criar os gráficos com dados filtrados
-        graf_map_estado_filtrado = criar_mapa_estado(df_filtrado)
-        grafbar_fat_estado_filtrado = criar_grafico_barras_estado(df_filtrado)
+        # Obter anos únicos apenas de datas válidas
+        anos_disponiveis = sorted(df_datas_validas['data'].dt.year.unique().astype(int).tolist())
         
-        st.plotly_chart(graf_map_estado_filtrado, use_container_width=True)
-        st.plotly_chart(grafbar_fat_estado_filtrado, use_container_width=True)
+        # Criar o multiselect
+        anos_selecionados = st.multiselect(
+            'Selecione o(s) ano(s):', 
+            anos_disponiveis,
+            default=anos_disponiveis,
+            key='anos_select'
+        )
         
-    with coluna2:
-        qtd_total_vendas = df_filtrado.groupby("nota").size().reset_index(name="qtd_vendas")
-        total_vendas = f'{qtd_total_vendas["qtd_vendas"].sum()} Unidades'
-        st.metric("Total de vendas: ", total_vendas)
+        # Garantir que sempre haja pelo menos um ano selecionado
+        if not anos_selecionados:
+            st.warning('Por favor, selecione pelo menos um ano.')
+            anos_selecionados = anos_disponiveis
         
-        graflinha_fat_mensal_filtrado = criar_grafico_linha_mensal(df_filtrado)
-        graf_fat_categoria_filtrado = criar_grafico_barras_categoria(df_filtrado)
+        # Filtrar o DataFrame com base nos anos selecionados, excluindo datas nulas
+        df_filtrado = df_datas_validas[df_datas_validas['data'].dt.year.isin(anos_selecionados)]
         
-        st.plotly_chart(graflinha_fat_mensal_filtrado, use_container_width=True)
-        st.plotly_chart(graf_fat_categoria_filtrado, use_container_width=True)
+        coluna1, coluna2 = st.columns(2)
+        with coluna1:
+            total_faturamento = df_filtrado['valorNota'].sum()
+            st.metric('FATURAMENTO TOTAL', formatar_moeda(total_faturamento))
+            
+            # Criar os gráficos com dados filtrados
+            mapa_estado = criar_mapa_estado(df_filtrado)
+            grafico_barras_estado = criar_grafico_barras_estado(df_filtrado)
+            
+            st.plotly_chart(mapa_estado, use_container_width=True)
+            st.plotly_chart(grafico_barras_estado, use_container_width=True)
+            
+        with coluna2:
+            qtd_total_vendas = df_filtrado.groupby("nota").size().reset_index(name="qtd_vendas")
+            total_vendas = f'{qtd_total_vendas["qtd_vendas"].sum()} Unidades'
+            st.metric("Total de vendas: ", total_vendas)
+            
+            grafico_linha_mensal = criar_grafico_linha_mensal(df_filtrado)
+            grafico_barras_categoria = criar_grafico_barras_categoria(df_filtrado)
+            
+            st.plotly_chart(grafico_linha_mensal, use_container_width=True)
+            st.plotly_chart(grafico_barras_categoria, use_container_width=True)
+            
+    except Exception as e:
+        st.error(f'Ocorreu um erro ao carregar os dados. Por favor, selecione pelo menos um ano.')
+        st.error(f'Detalhes do erro: {str(e)}')
 
