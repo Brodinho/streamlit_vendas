@@ -6,6 +6,22 @@ import locale
 from utils import formatar_moeda
 import math
 
+# Dicionário para tradução dos meses
+meses_pt = {
+    'January': 'Janeiro',
+    'February': 'Fevereiro',
+    'March': 'Março',
+    'April': 'Abril',
+    'May': 'Maio',
+    'June': 'Junho',
+    'July': 'Julho',
+    'August': 'Agosto',
+    'September': 'Setembro',
+    'October': 'Outubro',
+    'November': 'Novembro',
+    'December': 'Dezembro'
+}
+
 # Normaliza 'Faturamento' para ajustar o tamanho das bolhas
 from sklearn.preprocessing import MinMaxScaler
 from utils import df_fat_estado, df_fat_mes, df_fat_categoria
@@ -96,17 +112,19 @@ tick_values = [i * step for i in range(num_milhoes + 1)]
 
 # Atualizando o layout
 graflinha_fat_mensal.update_layout(
+    xaxis_title="",  # Remove o título do eixo X
+    yaxis_title="",  # Remove o título do eixo Y
     yaxis=dict(
         tickmode="array",
         tickvals=tick_values,
         ticktext=[f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") 
                  for x in tick_values],
         tickprefix="",
-        range=[0, max_escala],  # Define o intervalo do eixo Y
-        showgrid=True,          # Mostra as linhas de grade
-        gridwidth=1,            # Largura das linhas de grade
-        gridcolor='rgba(128, 128, 128, 0.2)',  # Cor das linhas de grade
-        zeroline=True          # Mostra a linha do zero
+        range=[0, max_escala],
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(128, 128, 128, 0.2)',
+        zeroline=True
     ),
     hoverlabel=dict(
         bgcolor="rgba(68, 68, 68, 0.9)",
@@ -144,29 +162,148 @@ for i in range(len(graflinha_fat_mensal.data)):
 # -------------------- GRÁFICO DE BARRAS: FATURAMENTO POR ESTADO -------------------- #
 grafbar_fat_estado = px.bar(
     df_fat_estado.head(),
-    x = 'Nome_Estado',
-    y = 'Faturamento',
-    text_auto=True,
+    x='Nome_Estado',
+    y='Faturamento',
+    text='Faturamento',
     title='FATURAMENTO POR ESTADO (TOP 5)'
 )
 
+# Calculando os valores para o eixo Y
+max_valor = df_fat_estado['Faturamento'].max()
+min_valor = 0
+step = 10000000  # Step de 10 milhões
+num_steps = math.ceil(max_valor / step)
+max_escala = num_steps * step
+
+# Criando a sequência de valores para o eixo Y
+tick_values = [i * step for i in range(num_steps + 1)]
+
+# Atualizando o layout
 grafbar_fat_estado.update_layout(
-    xaxis_title = "ESTADOS",
-    # yaxis_tickformat = "R$, .2f"
-    yaxis_tickformat = "TESTE ,.2f"  # Formato monetário com ponto para milhares e vírgula para decimais
+    xaxis_title="",  # Remove o título do eixo X
+    yaxis_title="",  # Remove o título do eixo Y
+    yaxis=dict(
+        tickmode="array",
+        tickvals=tick_values,
+        ticktext=[f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") 
+                 for x in tick_values],
+        range=[0, max_escala],
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(128, 128, 128, 0.2)'
+    ),
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(
+        color="white"
+    )
 )
 
+# Formatando os valores nas barras e definindo a cor da barra mais alta
+valores_formatados = [formatar_moeda(valor) for valor in df_fat_estado.head()['Faturamento']]
 grafbar_fat_estado.update_traces(
-    hovertemplate="Faturamento: R$ %{y:,.2f}<extra></extra>"
+    text=valores_formatados,
+    textposition='auto',
+    marker_color=['green' if x == max_valor else '#636EFA' 
+                 for x in df_fat_estado.head()['Faturamento']],
+    customdata=valores_formatados,
+    hovertemplate="Estado: %{x}<br>" +
+                  "Faturamento: %{customdata}" +
+                  "<extra></extra>"
 )
-
 
 # -------------------- GRÁFICO DE BARRAS: FATURAMENTO POR SUB-GRUPO -------------------- #
+# Ordenando o DataFrame antes de criar o gráfico
+df_fat_categoria_ordenado = df_fat_categoria.head().sort_values('Faturamento', ascending=False)
+
 graf_fat_categoria = px.bar(
-    df_fat_categoria.head(),
-    x = "Sub Grupo",
-    y = "Faturamento",
-    text_auto=True,
+    df_fat_categoria_ordenado,
+    x="Sub Grupo",
+    y="Faturamento",
+    # text="Faturamento",
     title="FATURAMENTO POR SUB-CATEGORIA (TOP 5)"
 )
+
+# Calculando os valores para o eixo Y
+max_valor = df_fat_categoria_ordenado['Faturamento'].max()
+min_valor = 0
+step = 10000000  # Step de 10 milhões
+num_steps = math.ceil(max_valor / step)
+max_escala = num_steps * step
+
+# Criando a sequência de valores para o eixo Y
+tick_values = [i * step for i in range(num_steps + 1)]
+
+# Atualizando o layout
+graf_fat_categoria.update_layout(
+    xaxis_title="",  # Remove o título do eixo X
+    yaxis_title="",  # Remove o título do eixo Y
+    yaxis=dict(
+        tickmode="array",
+        tickvals=tick_values,
+        ticktext=[f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") 
+                 for x in tick_values],
+        range=[0, max_escala],
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(128, 128, 128, 0.2)'
+    ),
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(
+        color="white"
+    )
+)
+
+# Formatando os valores nas barras e definindo a cor da barra mais alta
+valores_formatados = [formatar_moeda(valor) for valor in df_fat_categoria_ordenado['Faturamento']]
+graf_fat_categoria.update_traces(
+    text=valores_formatados,
+    textposition='auto',
+    marker_color=['green' if x == max_valor else '#636EFA' 
+                 for x in df_fat_categoria_ordenado['Faturamento']],
+    customdata=valores_formatados,
+    hovertemplate="Sub-Categoria: %{x}<br>" +
+                  "Faturamento: %{customdata}" +
+                  "<extra></extra>"
+)
+
+# Exportar as funções
+__all__ = ['criar_mapa_estado', 'criar_grafico_linha_mensal', 'criar_grafico_barras_estado', 'criar_grafico_barras_categoria']
+
+def criar_mapa_estado(df):
+    # Criar DataFrame agregado por estado
+    df_fat_estado = df.groupby("uf")[["valorNota"]].sum().reset_index()
+    df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
+    
+    # Adicionar nome dos estados e coordenadas
+    df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
+    # ... resto do código do mapa ...
+    return graf_map_estado
+
+def criar_grafico_linha_mensal(df):
+    # Criar DataFrame agregado por mês
+    df_fat_mes = df.copy()
+    df_fat_mes['Mês'] = df_fat_mes['data'].dt.month_name()
+    df_fat_mes['Ano'] = df_fat_mes['data'].dt.year
+    df_fat_mes['Mês'] = df_fat_mes['Mês'].map(meses_pt)
+    df_fat_mes = df_fat_mes.groupby(['Mês', 'Ano'])['valorNota'].sum().reset_index()
+    df_fat_mes = df_fat_mes.rename(columns={'valorNota': 'Faturamento'})
+    # ... resto do código do gráfico de linha ...
+    return graflinha_fat_mensal
+
+def criar_grafico_barras_estado(df):
+    # Criar DataFrame agregado por estado
+    df_fat_estado = df.groupby("uf")[["valorNota"]].sum().reset_index()
+    df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
+    df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
+    # ... resto do código do gráfico de barras estado ...
+    return grafbar_fat_estado
+
+def criar_grafico_barras_categoria(df):
+    # Criar DataFrame agregado por categoria
+    df_fat_categoria = df.groupby("subGrupo")[["valorNota"]].sum().reset_index()
+    df_fat_categoria = df_fat_categoria.rename(columns={'valorNota': 'Faturamento', 'subGrupo': 'Sub Grupo'})
+    # ... resto do código do gráfico de barras categoria ...
+    return graf_fat_categoria
 

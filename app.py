@@ -4,7 +4,8 @@ import plotly.express as px
 from dataset import df
 from PIL import Image
 from utils import formata_colunas_monetarias, formatar_valor, formatar_moeda
-from grafics import graf_map_estado, graflinha_fat_mensal, grafbar_fat_estado, graf_fat_categoria
+from grafics import (criar_mapa_estado, criar_grafico_linha_mensal, 
+                    criar_grafico_barras_estado, criar_grafico_barras_categoria)
 
 image = Image.open('imagens/sales.png')
 
@@ -75,16 +76,37 @@ with aba1:
 
     # st.dataframe(df)
 with aba2:
+    # Criar um multiselect para os anos
+    anos_disponiveis = sorted(df['data'].dt.year.unique())
+    anos_selecionados = st.multiselect(
+        'Selecione o(s) ano(s):', 
+        anos_disponiveis,
+        default=anos_disponiveis
+    )
+    
+    # Filtrar o DataFrame com base nos anos selecionados
+    df_filtrado = df[df['data'].dt.year.isin(anos_selecionados)]
+    
     coluna1, coluna2 = st.columns(2)
     with coluna1:
-        total_faturamento = df['valorNota'].sum()
+        total_faturamento = df_filtrado['valorNota'].sum()
         st.metric('FATURAMENTO TOTAL', formatar_moeda(total_faturamento))
-        st.plotly_chart(graf_map_estado, use_container_width=True)
-        st.plotly_chart(grafbar_fat_estado, use_container_width=True)
+        
+        # Criar os gráficos com dados filtrados
+        graf_map_estado_filtrado = criar_mapa_estado(df_filtrado)
+        grafbar_fat_estado_filtrado = criar_grafico_barras_estado(df_filtrado)
+        
+        st.plotly_chart(graf_map_estado_filtrado, use_container_width=True)
+        st.plotly_chart(grafbar_fat_estado_filtrado, use_container_width=True)
+        
     with coluna2:
-        qtd_total_vendas = df.groupby("nota").size().reset_index(name="qtd_vendas")
+        qtd_total_vendas = df_filtrado.groupby("nota").size().reset_index(name="qtd_vendas")
         total_vendas = f'{qtd_total_vendas["qtd_vendas"].sum()} Unidades'
         st.metric("Total de vendas: ", total_vendas)
-        st.plotly_chart(graflinha_fat_mensal, use_container_width=True)
-        st.plotly_chart(graf_fat_categoria, use_container_width=True)
+        
+        graflinha_fat_mensal_filtrado = criar_grafico_linha_mensal(df_filtrado)
+        graf_fat_categoria_filtrado = criar_grafico_barras_categoria(df_filtrado)
+        
+        st.plotly_chart(graflinha_fat_mensal_filtrado, use_container_width=True)
+        st.plotly_chart(graf_fat_categoria_filtrado, use_container_width=True)
 
