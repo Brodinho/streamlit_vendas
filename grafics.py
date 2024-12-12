@@ -3,7 +3,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import locale
-from utils import formatar_moeda
+from utils import formatar_moeda, criar_df_fat_estado
 import math
 
 # Dicionário para tradução dos meses
@@ -33,7 +33,23 @@ siglas_estados = {
     "MS": "Mato Grosso do Sul", "MG": "Minas Gerais", "PA": "Pará", "PB": "Paraíba", "PR": "Paraná",
     "PE": "Pernambuco", "PI": "Piauí", "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte",
     "RS": "Rio Grande do Sul", "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina",
-    "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins"
+    "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins",
+    "EUA": "Estados Unidos",
+    "COL": "Colômbia",
+    "PER": "Peru",
+    "ARG": "Argentina",
+    "ELS": "El Salvador",
+    "MEX": "México",
+    "CHI": "Chile",
+    "GUA": "Guatemala",
+    "HON": "Honduras",
+    "NIC": "Nicarágua",
+    "PAN": "Panamá",
+    "BOL": "Bolívia",
+    "CHI": "Chile",
+    "URU": "Uruguai",
+    "PAR": "Paraguai",
+    "CRI": "Costa Rica"
 }
 
 # Adicionar a coluna com os nomes mesess dos estados
@@ -160,8 +176,11 @@ for i in range(len(graflinha_fat_mensal.data)):
     graflinha_fat_mensal.data[i].mode = "lines+markers"
 
 # -------------------- GRÁFICO DE BARRAS: FATURAMENTO POR ESTADO -------------------- #
+# Filtrar apenas registros com Nome_Estado válido e pegar os top 5
+df_fat_estado_filtrado = df_fat_estado.dropna(subset=['Nome_Estado']).head(5)
+
 grafbar_fat_estado = px.bar(
-    df_fat_estado.head(),
+    df_fat_estado_filtrado,
     x='Nome_Estado',
     y='Faturamento',
     text='Faturamento',
@@ -169,7 +188,7 @@ grafbar_fat_estado = px.bar(
 )
 
 # Calculando os valores para o eixo Y
-max_valor = df_fat_estado['Faturamento'].max()
+max_valor = df_fat_estado_filtrado['Faturamento'].max()
 min_valor = 0
 step = 10000000  # Step de 10 milhões
 num_steps = math.ceil(max_valor / step)
@@ -200,12 +219,12 @@ grafbar_fat_estado.update_layout(
 )
 
 # Formatando os valores nas barras e definindo a cor da barra mais alta
-valores_formatados = [formatar_moeda(valor) for valor in df_fat_estado.head()['Faturamento']]
+valores_formatados = [formatar_moeda(valor) for valor in df_fat_estado_filtrado['Faturamento']]
 grafbar_fat_estado.update_traces(
     text=valores_formatados,
     textposition='auto',
     marker_color=['green' if x == max_valor else '#636EFA' 
-                 for x in df_fat_estado.head()['Faturamento']],
+                 for x in df_fat_estado_filtrado['Faturamento']],
     customdata=valores_formatados,
     hovertemplate="Estado: %{x}<br>" +
                   "Faturamento: %{customdata}" +
@@ -271,14 +290,41 @@ graf_fat_categoria.update_traces(
 # Exportar as funções
 __all__ = ['criar_mapa_estado', 'criar_grafico_linha_mensal', 'criar_grafico_barras_estado', 'criar_grafico_barras_categoria']
 
-def criar_mapa_estado(df):
-    # Criar DataFrame agregado por estado
-    df_fat_estado = df.groupby("uf")[["valorNota"]].sum().reset_index()
-    df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
+def criar_mapa_estado(df, ano=None):
+    # Criar DataFrame filtrado por ano
+    df_fat_estado = criar_df_fat_estado(df, ano)
     
-    # Adicionar nome dos estados e coordenadas
+    # Adicionar a coluna com os nomes dos estados
     df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
-    # ... resto do código do mapa ...
+
+    # Renomear e formatar o faturamento total no formato brasileiro
+    df_fat_estado['Faturamento Total'] = df_fat_estado['Faturamento'].apply(
+        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    )
+
+    # Normaliza 'Faturamento' para ajustar o tamanho das bolhas
+    scaler = MinMaxScaler(feature_range=(5, 50))
+    df_fat_estado['bubble_size'] = scaler.fit_transform(df_fat_estado[['Faturamento']])
+
+    # Cria o mapa
+    graf_map_estado = px.scatter_mapbox(
+        df_fat_estado,
+        lat='latitude',
+        lon='longitude',
+        size='bubble_size',
+        color_discrete_sequence=['blue'],
+        hover_name='Nome_Estado',
+        hover_data={
+            'bubble_size': False,
+            'latitude': False,
+            'longitude': False,
+            'Faturamento Total': True
+        },
+        title="FATURAMENTO TOTAL POR ESTADO",
+        mapbox_style="open-street-map",
+        zoom=3
+    )
+
     return graf_map_estado
 
 def criar_grafico_linha_mensal(df):
@@ -368,10 +414,11 @@ def criar_grafico_linha_mensal(df):
 def criar_grafico_barras_estado(df):
     # Criar DataFrame agregado por estado
     df_fat_estado = df.groupby("uf")[["valorNota"]].sum().reset_index()
-    df_fat_estado = df_fat_estado.sort_values('valorNota', ascending=False).head()
+    # Filtrar registros válidos e pegar top 5
+    df_fat_estado = df_fat_estado[df_fat_estado['uf'] != 'EX'].sort_values('valorNota', ascending=False).head(5)
     df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
     df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
-
+    
     # Criar o gráfico
     grafico = px.bar(
         df_fat_estado,

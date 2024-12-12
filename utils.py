@@ -31,17 +31,76 @@ def formatar_moeda(valor):
 def formatar_valor_monetario(valor):
     return locale.currency(valor, grouping=True)
 
-# -------------------- FUNÇÕES: FIM -------------------- #
+# Função para extrair a sigla do país
+def extrair_sigla_pais(pais):
+    mapeamento_paises = {
+        'COLOMBIA': 'COL',
+        'PERU': 'PER',
+        'ARGENTINA': 'ARG',
+        'ESTADOS UNIDOS': 'EUA',
+        'EL SALVADOR': 'ELS'
+        # Adicione outros países conforme necessário
+    }
+    return mapeamento_paises.get(str(pais).upper(), 'EX')
+
+# Adicionar dicionário com as coordenadas dos países
+coordenadas_paises = {
+    'EUA': {'lat': 37.0902, 'lon': -95.7129},    # Estados Unidos
+    'COL': {'lat': 4.5709, 'lon': -74.2973},     # Colômbia
+    'PER': {'lat': -9.1900, 'lon': -75.0152},    # Peru
+    'ARG': {'lat': -38.4161, 'lon': -63.6167},   # Argentina
+    'ELS': {'lat': 13.7942, 'lon': -88.8965},    # El Salvador
+    'MEX': {'lat': 23.6345, 'lon': -102.5528},   # México
+    'CHI': {'lat': -35.6751, 'lon': -71.5430},   # Chile
+    'GUA': {'lat': 15.7835, 'lon': -90.2308},    # Guatemala
+    'HON': {'lat': 15.2000, 'lon': -86.2419},    # Honduras
+    'NIC': {'lat': 12.8654, 'lon': -85.2072},    # Nicarágua
+    'PAN': {'lat': 8.5380, 'lon': -80.7821},     # Panamá
+    'BOL': {'lat': -16.2902, 'lon': -63.5887},   # Bolívia
+    'URU': {'lat': -32.5228, 'lon': -55.7658},   # Uruguai
+    'PAR': {'lat': -23.4425, 'lon': -58.4438},   # Paraguai
+    'CRI': {'lat': 9.7489, 'lon': -83.7534},     # Costa Rica
+}
+
+# Modificação na construção do df_fat_estado
+def criar_df_fat_estado(df, ano=None):
+    # Criar uma cópia do DataFrame original
+    df_temp = df.copy()
+    
+    # Filtrar por ano se especificado
+    if ano is not None:
+        df_temp = df_temp[df_temp['data'].dt.year == ano]
+    
+    # Onde uf é 'EX', substituir pela sigla do país da coluna regiao
+    mascara_ex = df_temp['uf'] == 'EX'
+    df_temp.loc[mascara_ex, 'uf'] = df_temp.loc[mascara_ex, 'regiao'].apply(extrair_sigla_pais)
+    
+    # Agrupamento por uf
+    df_fat_estado = df_temp.groupby("uf")[["valorNota"]].sum()
+    
+    # Merge com as informações de latitude e longitude
+    df_fat_estado = (df_temp.drop_duplicates(subset="uf")[["uf", "latitude", "longitude"]]
+                    .merge(df_fat_estado, left_on="uf", right_index=True)
+                    .sort_values("valorNota", ascending=False))
+    
+    # Adicionar coordenadas para países estrangeiros
+    for index, row in df_fat_estado.iterrows():
+        if pd.isna(row['latitude']) and row['uf'] in coordenadas_paises:
+            df_fat_estado.at[index, 'latitude'] = coordenadas_paises[row['uf']]['lat']
+            df_fat_estado.at[index, 'longitude'] = coordenadas_paises[row['uf']]['lon']
+    
+    # Renomeando a coluna valorNota
+    df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
+    
+    return df_fat_estado
+
+# -------------------- FUNÕES: FIM -------------------- #
 
 
 
 # -------------------- DATAFRAME DE FATURAMENTO POR ESTADO -------------------- #
 
-df_fat_estado = df.groupby("uf")[["valorNota"]].sum()
-df_fat_estado = df.drop_duplicates(subset="uf")[["uf", "latitude", "longitude"]].merge(df_fat_estado, left_on="uf", right_index=True).sort_values("valorNota", ascending=False)
-
-# Renomeando a coluna valorNota
-df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
+df_fat_estado = criar_df_fat_estado(df)
 
 # -------------------- DATAFRAME DE FATURAMENTO POR MÊS-A-MÊS E ANO -------------------- #
 data_inicio = df["data"].min()  # Menor data diretamente da coluna 'data'

@@ -154,5 +154,8 @@ df["grupo"]    = df["grupo"].replace('none', 'N/C')
 df['data'] = pd.to_datetime(df['data'], errors='coerce')
 df['emissao'] = pd.to_datetime(df['emissao'], errors='coerce')
 
+print('Estrutura do DataFrame df:')
+print(df[["cidade", "uf","regiao", "latitude", "longitude"]].head(100))
+
 response.close()
 spark.stop()
