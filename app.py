@@ -64,12 +64,26 @@ def mostrar_dashboard():
     tab1, tab2, tab3 = st.tabs(["📊 Gráficos", "📋 Dataset", "👥 Vendedores"])
 
     with tab1:  # Aba de Gráficos
-        # Adicionar seletor de ano - com tratamento para NaN
+        # Adicionar seletor de ano com múltipla seleção
         anos_disponiveis = sorted(df['data'].dt.year.dropna().unique().astype(int))
-        if anos_disponiveis:  # Verifica se há anos disponíveis
-            ano_selecionado = st.selectbox('Selecione o Ano:', 
-                                         anos_disponiveis, 
-                                         index=len(anos_disponiveis)-1)
+        if anos_disponiveis:
+            # Adicionar opção "Todos" e permitir múltipla seleção
+            opcoes_anos = ['Todos'] + [str(ano) for ano in anos_disponiveis]
+            anos_selecionados = st.multiselect(
+                'Selecione o(s) Ano(s):', 
+                opcoes_anos,
+                default=['Todos']
+            )
+            
+            # Lógica para tratar a seleção
+            if 'Todos' in anos_selecionados:
+                anos_filtro = anos_disponiveis
+            else:
+                anos_filtro = [int(ano) for ano in anos_selecionados]
+                
+            if not anos_selecionados:  # Se nenhum ano selecionado
+                st.warning('Por favor, selecione pelo menos um ano.')
+                return
         else:
             st.error('Não há dados com datas válidas disponíveis')
             return
@@ -83,23 +97,23 @@ def mostrar_dashboard():
 
         if config.get('mapa', True):
             st.subheader('Mapa de Faturamento por Estado/País')
-            graf_map_estado = criar_mapa_estado(df, ano_selecionado)
+            graf_map_estado = criar_mapa_estado(df, anos_filtro)
             if graf_map_estado is not None:
                 st.plotly_chart(graf_map_estado, use_container_width=True)
             else:
-                st.warning(f'Não há dados disponíveis para o ano {ano_selecionado}')
+                st.warning(f'Não há dados disponíveis para o(s) ano(s) selecionado(s)')
 
         if config.get('barras_estado', True):
             st.subheader('Top 5 Estados/Países por Faturamento')
-            grafbar_fat_estado = criar_grafico_barras_estado(df, ano_selecionado)
+            grafbar_fat_estado = criar_grafico_barras_estado(df, anos_filtro)
             if grafbar_fat_estado is not None:
                 st.plotly_chart(grafbar_fat_estado, use_container_width=True)
             else:
-                st.warning(f'Não há dados disponíveis para o ano {ano_selecionado}')
+                st.warning(f'Não há dados disponíveis para o(s) ano(s) selecionado(s)')
 
         if config.get('linha_mensal', True):
             st.subheader('Faturamento Mensal')
-            graflinha_fat_mensal = criar_grafico_linha_mensal(df)
+            graflinha_fat_mensal = criar_grafico_linha_mensal(df, anos_filtro)
             if graflinha_fat_mensal is not None:
                 st.plotly_chart(graflinha_fat_mensal, use_container_width=True)
             else:
@@ -107,7 +121,7 @@ def mostrar_dashboard():
 
         if config.get('barras_categoria', True):
             st.subheader('Faturamento por Categoria')
-            graf_fat_categoria = criar_grafico_barras_categoria(df)
+            graf_fat_categoria = criar_grafico_barras_categoria(df, anos_filtro)
             if graf_fat_categoria is not None:
                 st.plotly_chart(graf_fat_categoria, use_container_width=True)
             else:

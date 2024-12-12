@@ -290,32 +290,47 @@ graf_fat_categoria.update_traces(
 # Exportar as funções
 __all__ = ['criar_mapa_estado', 'criar_grafico_linha_mensal', 'criar_grafico_barras_estado', 'criar_grafico_barras_categoria']
 
-def criar_mapa_estado(df, ano=None):
-    # Criar DataFrame filtrado por ano
-    df_fat_estado = criar_df_fat_estado(df, ano)
+def criar_mapa_estado(df, anos=None):
+    # Criar DataFrame filtrado por ano(s)
+    df_temp = df.copy()
     
-    # Verificar se há dados
-    if df_fat_estado.empty:
-        return None  # ou criar um gráfico vazio/mensagem de erro
+    # Filtrar por ano(s) se especificado
+    if anos is not None and anos:  # Verifica se há anos selecionados
+        df_temp = df_temp[df_temp['data'].dt.year.isin(anos)]
+    
+    # Se não houver dados após o filtro, retornar None
+    if df_temp.empty:
+        return None
+        
+    # Criar DataFrame agregado por estado
+    df_temp = df_temp.groupby("uf")[["valorNota"]].sum().reset_index()
+    df_temp = df_temp.rename(columns={'valorNota': 'Faturamento'})
     
     # Adicionar a coluna com os nomes dos estados
-    df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
+    df_temp['Nome_Estado'] = df_temp['uf'].map(siglas_estados)
 
     # Renomear e formatar o faturamento total no formato brasileiro
-    df_fat_estado['Faturamento Total'] = df_fat_estado['Faturamento'].apply(
+    df_temp['Faturamento Total'] = df_temp['Faturamento'].apply(
         lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
 
     # Normaliza 'Faturamento' para ajustar o tamanho das bolhas
-    if len(df_fat_estado) > 0:  # Verifica se há dados antes de usar o MinMaxScaler
+    if len(df_temp) > 0:  # Verifica se há dados antes de usar o MinMaxScaler
         scaler = MinMaxScaler(feature_range=(5, 50))
-        df_fat_estado['bubble_size'] = scaler.fit_transform(df_fat_estado[['Faturamento']])
+        df_temp['bubble_size'] = scaler.fit_transform(df_temp[['Faturamento']])
     else:
-        df_fat_estado['bubble_size'] = 5  # valor padrão se não houver dados
+        df_temp['bubble_size'] = 5  # valor padrão se não houver dados
+
+    # Adicionar coordenadas
+    df_temp = df_temp.merge(
+        df[['uf', 'latitude', 'longitude']].drop_duplicates(),
+        on='uf',
+        how='left'
+    )
 
     # Cria o mapa
     graf_map_estado = px.scatter_mapbox(
-        df_fat_estado,
+        df_temp,
         lat='latitude',
         lon='longitude',
         size='bubble_size',
@@ -334,9 +349,13 @@ def criar_mapa_estado(df, ano=None):
 
     return graf_map_estado
 
-def criar_grafico_linha_mensal(df):
+def criar_grafico_linha_mensal(df, anos=None):
     # Criar DataFrame agregado por mês
     df_fat_mes = df.copy()
+    
+    # Filtrar por ano(s) se especificado
+    if anos is not None and anos:
+        df_fat_mes = df_fat_mes[df_fat_mes['data'].dt.year.isin(anos)]
     
     # Remover linhas com datas nulas
     df_fat_mes = df_fat_mes.dropna(subset=['data'])
@@ -429,17 +448,20 @@ def criar_grafico_linha_mensal(df):
 
     return grafico
 
-def criar_grafico_barras_estado(df, ano=None):
-    # Filtrar por ano se especificado
-    if ano is not None:
-        df = df[df['data'].dt.year == ano]
+def criar_grafico_barras_estado(df, anos=None):
+    # Criar DataFrame filtrado por ano(s)
+    df_temp = df.copy()
+    
+    # Filtrar por ano(s) se especificado
+    if anos is not None and anos:  # Verifica se há anos selecionados
+        df_temp = df_temp[df_temp['data'].dt.year.isin(anos)]
     
     # Se não houver dados após o filtro, retornar None
-    if df.empty:
+    if df_temp.empty:
         return None
         
     # Criar DataFrame agregado por estado
-    df_fat_estado = df.groupby("uf")[["valorNota"]].sum().reset_index()
+    df_fat_estado = df_temp.groupby("uf")[["valorNota"]].sum().reset_index()
     
     # Filtrar 'EX' antes de pegar os top 5
     df_fat_estado = df_fat_estado[df_fat_estado['uf'] != 'EX'].sort_values('valorNota', ascending=False).head(5)
@@ -465,14 +487,30 @@ def criar_grafico_barras_estado(df, ano=None):
     grafbar_fat_estado.update_layout(
         xaxis_title="Estado",
         yaxis_title="Faturamento (R$)",
-        showlegend=False
+        showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(
+            color="white"
+        )
     )
     
     return grafbar_fat_estado
 
-def criar_grafico_barras_categoria(df):
+def criar_grafico_barras_categoria(df, anos=None):
+    # Criar DataFrame filtrado por ano(s)
+    df_temp = df.copy()
+    
+    # Filtrar por ano(s) se especificado
+    if anos is not None and anos:
+        df_temp = df_temp[df_temp['data'].dt.year.isin(anos)]
+    
+    # Se não houver dados após o filtro, retornar None
+    if df_temp.empty:
+        return None
+        
     # Criar DataFrame agregado por categoria
-    df_fat_categoria = df.groupby("subGrupo")[["valorNota"]].sum().reset_index()
+    df_fat_categoria = df_temp.groupby("subGrupo")[["valorNota"]].sum().reset_index()
     df_fat_categoria = df_fat_categoria.sort_values('valorNota', ascending=False).head()
     df_fat_categoria = df_fat_categoria.rename(columns={'valorNota': 'Faturamento', 'subGrupo': 'Sub Grupo'})
 
