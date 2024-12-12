@@ -64,16 +64,65 @@ def mostrar_dashboard():
     tab1, tab2, tab3 = st.tabs(["📊 Gráficos", "📋 Dataset", "👥 Vendedores"])
 
     with tab1:  # Aba de Gráficos
-        # Adicionar seletor de ano com múltipla seleção
+        # Adicionar seletor de ano com múltipla seleção e largura controlada
         anos_disponiveis = sorted(df['data'].dt.year.dropna().unique().astype(int))
         if anos_disponiveis:
-            # Adicionar opção "Todos" e permitir múltipla seleção
-            opcoes_anos = ['Todos'] + [str(ano) for ano in anos_disponiveis]
-            anos_selecionados = st.multiselect(
-                'Selecione o(s) Ano(s):', 
-                opcoes_anos,
-                default=['Todos']
+            # CSS para controlar a largura dinâmica mantendo altura fixa
+            st.markdown(
+                """
+                <style>
+                /* Container principal do multiselect */
+                div[data-testid="stMultiSelect"] {
+                    min-width: 150px;
+                    width: auto !important;
+                    display: inline-block !important;
+                }
+                
+                /* Container dos itens selecionados */
+                div[data-testid="stMultiSelect"] > div {
+                    width: auto !important;
+                    min-width: 150px;
+                    display: inline-flex !important;
+                }
+                
+                /* Container que mostra os itens selecionados */
+                div[data-testid="stMultiSelect"] > div > div {
+                    height: 38px !important;
+                    display: inline-flex !important;
+                    flex-direction: row !important;
+                    flex-wrap: nowrap !important;
+                    gap: 4px;
+                    overflow: visible !important;
+                    width: auto !important;
+                }
+                
+                /* Estilo para os botões individuais */
+                div[data-testid="stMultiSelect"] div[role="button"] {
+                    white-space: nowrap;
+                    display: inline-block !important;
+                }
+
+                /* Container da coluna */
+                div.stColumn {
+                    width: auto !important;
+                    min-width: 150px !important;
+                    flex-grow: 1 !important;
+                }
+                </style>
+                """, 
+                unsafe_allow_html=True
             )
+            
+            # Criar uma coluna que se ajusta ao conteúdo
+            col1, col2 = st.columns([3, 3])  # Proporção mais equilibrada
+            with col1:
+                # Adicionar opção "Todos" e permitir múltipla seleção
+                opcoes_anos = ['Todos'] + [str(ano) for ano in anos_disponiveis]
+                anos_selecionados = st.multiselect(
+                    'Selecione o(s) Ano(s):', 
+                    opcoes_anos,
+                    default=['Todos']
+                )
             
             # Lógica para tratar a seleção
             if 'Todos' in anos_selecionados:
@@ -96,7 +145,7 @@ def mostrar_dashboard():
             st.rerun()
 
         if config.get('mapa', True):
-            st.subheader('Mapa de Faturamento por Estado/País')
+            st.subheader('Mapa de Faturamento por Estado e Países')
             graf_map_estado = criar_mapa_estado(df, anos_filtro)
             if graf_map_estado is not None:
                 st.plotly_chart(graf_map_estado, use_container_width=True)
@@ -104,7 +153,7 @@ def mostrar_dashboard():
                 st.warning(f'Não há dados disponíveis para o(s) ano(s) selecionado(s)')
 
         if config.get('barras_estado', True):
-            st.subheader('Top 5 Estados/Países por Faturamento')
+            st.subheader('Estados e Países com maior faturamento (Top 5)')
             grafbar_fat_estado = criar_grafico_barras_estado(df, anos_filtro)
             if grafbar_fat_estado is not None:
                 st.plotly_chart(grafbar_fat_estado, use_container_width=True)
@@ -112,7 +161,7 @@ def mostrar_dashboard():
                 st.warning(f'Não há dados disponíveis para o(s) ano(s) selecionado(s)')
 
         if config.get('linha_mensal', True):
-            st.subheader('Faturamento Mensal')
+            st.subheader('Faturamento anual mês-a-mês')
             graflinha_fat_mensal = criar_grafico_linha_mensal(df, anos_filtro)
             if graflinha_fat_mensal is not None:
                 st.plotly_chart(graflinha_fat_mensal, use_container_width=True)
@@ -120,7 +169,7 @@ def mostrar_dashboard():
                 st.warning('Não há dados disponíveis para o gráfico de linha mensal')
 
         if config.get('barras_categoria', True):
-            st.subheader('Faturamento por Categoria')
+            st.subheader('Faturamento por Sub-Categoria (Top 5)')
             graf_fat_categoria = criar_grafico_barras_categoria(df, anos_filtro)
             if graf_fat_categoria is not None:
                 st.plotly_chart(graf_fat_categoria, use_container_width=True)

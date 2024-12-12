@@ -80,7 +80,7 @@ graf_map_estado = px.scatter_mapbox(
         'longitude': False,    # Exclui longitude
         'Faturamento Total': True  # Inclui Faturamento Total com o nome correto
     },
-    title="FATURAMENTO TOTAL POR ESTADO",
+    # title="FATURAMENTO TOTAL POR ESTADO",
     mapbox_style="open-street-map",
     zoom=3
 )
@@ -111,7 +111,7 @@ graflinha_fat_mensal = px.line(
     y="Faturamento",
     color="Ano",
     markers=True,
-    title="FATURAMENTO MÊS A MÊS"
+    # title="FATURAMENTO MÊS A MÊS"
 )
 
 # Calculando os valores para o eixo Y
@@ -184,7 +184,7 @@ grafbar_fat_estado = px.bar(
     x='Nome_Estado',
     y='Faturamento',
     text='Faturamento',
-    title='FATURAMENTO POR ESTADO (TOP 5)'
+    # title='FATURAMENTO POR ESTADO (TOP 5)'
 )
 
 # Calculando os valores para o eixo Y
@@ -240,7 +240,7 @@ graf_fat_categoria = px.bar(
     x="Sub Grupo",
     y="Faturamento",
     # text="Faturamento",
-    title="FATURAMENTO POR SUB-CATEGORIA (TOP 5)"
+    # title="FATURAMENTO POR SUB-CATEGORIA (TOP 5)"
 )
 
 # Calculando os valores para o eixo Y
@@ -342,7 +342,7 @@ def criar_mapa_estado(df, anos=None):
             'longitude': False,
             'Faturamento Total': True
         },
-        title="FATURAMENTO TOTAL POR ESTADO",
+        # title="FATURAMENTO TOTAL POR ESTADO",
         mapbox_style="open-street-map",
         zoom=3
     )
@@ -399,8 +399,8 @@ def criar_grafico_linha_mensal(df, anos=None):
 
     # Atualizando o layout
     grafico.update_layout(
-        xaxis_title="",  # Remove o título do eixo X
-        yaxis_title="",  # Remove o título do eixo Y
+        xaxis_title="",
+        yaxis_title="",
         yaxis=dict(
             tickmode="array",
             tickvals=tick_values,
@@ -425,6 +425,11 @@ def criar_grafico_linha_mensal(df, anos=None):
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(
             color="white"
+        ),
+        showlegend=True,  # Mantém a legenda visível
+        legend=dict(
+            itemclick=False,  # Desabilita o clique nos itens da legenda
+            itemdoubleclick=False  # Desabilita o duplo clique nos itens da legenda
         )
     )
 
@@ -479,7 +484,7 @@ def criar_grafico_barras_estado(df, anos=None):
         x='Nome_Estado',
         y='Faturamento',
         text='Faturamento Total',
-        title='FATURAMENTO POR ESTADO (TOP 5)'
+        # title='FATURAMENTO POR ESTADO (TOP 5)'
     )
     
     # Configurar o layout do gráfico
@@ -519,7 +524,7 @@ def criar_grafico_barras_categoria(df, anos=None):
         df_fat_categoria,
         x='Sub Grupo',
         y='Faturamento',
-        title='FATURAMENTO POR SUB-CATEGORIA (TOP 5)'
+        # title='FATURAMENTO POR SUB-CATEGORIA (TOP 5)'
     )
     
     # Calculando os valores para o eixo Y
