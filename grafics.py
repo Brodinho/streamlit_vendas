@@ -294,6 +294,10 @@ def criar_mapa_estado(df, ano=None):
     # Criar DataFrame filtrado por ano
     df_fat_estado = criar_df_fat_estado(df, ano)
     
+    # Verificar se há dados
+    if df_fat_estado.empty:
+        return None  # ou criar um gráfico vazio/mensagem de erro
+    
     # Adicionar a coluna com os nomes dos estados
     df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
 
@@ -303,8 +307,11 @@ def criar_mapa_estado(df, ano=None):
     )
 
     # Normaliza 'Faturamento' para ajustar o tamanho das bolhas
-    scaler = MinMaxScaler(feature_range=(5, 50))
-    df_fat_estado['bubble_size'] = scaler.fit_transform(df_fat_estado[['Faturamento']])
+    if len(df_fat_estado) > 0:  # Verifica se há dados antes de usar o MinMaxScaler
+        scaler = MinMaxScaler(feature_range=(5, 50))
+        df_fat_estado['bubble_size'] = scaler.fit_transform(df_fat_estado[['Faturamento']])
+    else:
+        df_fat_estado['bubble_size'] = 5  # valor padrão se não houver dados
 
     # Cria o mapa
     graf_map_estado = px.scatter_mapbox(
@@ -330,10 +337,21 @@ def criar_mapa_estado(df, ano=None):
 def criar_grafico_linha_mensal(df):
     # Criar DataFrame agregado por mês
     df_fat_mes = df.copy()
+    
+    # Remover linhas com datas nulas
+    df_fat_mes = df_fat_mes.dropna(subset=['data'])
+    
+    # Se não houver dados após a limpeza, retornar None
+    if df_fat_mes.empty:
+        return None
+    
+    # Converter para inteiro garantindo que não há NaN
+    df_fat_mes['Ano'] = df_fat_mes['data'].dt.year.astype(int)
     df_fat_mes['Mês'] = df_fat_mes['data'].dt.month_name()
-    df_fat_mes['Ano'] = df_fat_mes['data'].dt.year.astype(int)  # Convertendo para inteiro
     df_fat_mes['Mês'] = df_fat_mes['Mês'].map(meses_pt)
     df_fat_mes["Num_Mês"] = df_fat_mes["data"].dt.month
+    
+    # Agrupar os dados
     df_fat_mes = df_fat_mes.groupby(['Mês', 'Ano', 'Num_Mês'])['valorNota'].sum().reset_index()
     df_fat_mes = df_fat_mes.rename(columns={'valorNota': 'Faturamento'})
     df_fat_mes = df_fat_mes.sort_values(['Ano', 'Num_Mês'])
@@ -411,67 +429,46 @@ def criar_grafico_linha_mensal(df):
 
     return grafico
 
-def criar_grafico_barras_estado(df):
+def criar_grafico_barras_estado(df, ano=None):
+    # Filtrar por ano se especificado
+    if ano is not None:
+        df = df[df['data'].dt.year == ano]
+    
+    # Se não houver dados após o filtro, retornar None
+    if df.empty:
+        return None
+        
     # Criar DataFrame agregado por estado
     df_fat_estado = df.groupby("uf")[["valorNota"]].sum().reset_index()
-    # Filtrar registros válidos e pegar top 5
+    
+    # Filtrar 'EX' antes de pegar os top 5
     df_fat_estado = df_fat_estado[df_fat_estado['uf'] != 'EX'].sort_values('valorNota', ascending=False).head(5)
     df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
     df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
     
+    # Formatar os valores de faturamento para exibição
+    df_fat_estado['Faturamento Total'] = df_fat_estado['Faturamento'].apply(
+        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    )
+    
     # Criar o gráfico
-    grafico = px.bar(
+    grafbar_fat_estado = px.bar(
         df_fat_estado,
         x='Nome_Estado',
         y='Faturamento',
+        text='Faturamento Total',
         title='FATURAMENTO POR ESTADO (TOP 5)'
     )
     
-    # Calculando os valores para o eixo Y
-    max_valor = df_fat_estado['Faturamento'].max()
-    min_valor = 0
-    step = 10000000  # Step de 10 milhões
-    num_steps = math.ceil(max_valor / step)
-    max_escala = num_steps * step
-
-    # Criando a sequência de valores para o eixo Y
-    tick_values = [i * step for i in range(num_steps + 1)]
-
-    # Atualizando o layout
-    grafico.update_layout(
-        xaxis_title="",  # Remove o título do eixo X
-        yaxis_title="",  # Remove o título do eixo Y
-        yaxis=dict(
-            tickmode="array",
-            tickvals=tick_values,
-            ticktext=[f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") 
-                     for x in tick_values],
-            range=[0, max_escala],
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(128, 128, 128, 0.2)'
-        ),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(
-            color="white"
-        )
+    # Configurar o layout do gráfico
+    grafbar_fat_estado.update_traces(textposition='outside')
+    grafbar_fat_estado.update_layout(
+        xaxis_title="Estado",
+        yaxis_title="Faturamento (R$)",
+        showlegend=False
     )
-
-    # Formatando os valores nas barras e definindo a cor da barra mais alta
-    valores_formatados = [formatar_moeda(valor) for valor in df_fat_estado['Faturamento']]
-    grafico.update_traces(
-        text=valores_formatados,
-        textposition='auto',
-        marker_color=['green' if x == max_valor else '#636EFA' 
-                     for x in df_fat_estado['Faturamento']],
-        customdata=valores_formatados,
-        hovertemplate="Estado: %{x}<br>" +
-                      "Faturamento: %{customdata}" +
-                      "<extra></extra>"
-    )
-
-    return grafico
+    
+    return grafbar_fat_estado
 
 def criar_grafico_barras_categoria(df):
     # Criar DataFrame agregado por categoria

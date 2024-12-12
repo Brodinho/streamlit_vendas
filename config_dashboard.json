@@ -1,1 +1,1 @@
-{"mapa": true, "barras_estado": false, "linha_mensal": true}
+{"mapa": true, "barras_estado": true, "linha_mensal": true, "barras_categoria": true}
