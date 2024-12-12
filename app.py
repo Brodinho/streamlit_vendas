@@ -6,15 +6,19 @@ from PIL import Image
 from utils import formata_colunas_monetarias, formatar_valor, formatar_moeda
 from grafics import (criar_mapa_estado, criar_grafico_linha_mensal, 
                     criar_grafico_barras_estado, criar_grafico_barras_categoria)
+from config import carregar_configuracoes
 
 image = Image.open('imagens/sales.png')
 
 # Definir o tema como dark
 st.set_page_config(page_title="Dashboard de Vendas", layout='wide', page_icon="📊", initial_sidebar_state='expanded')
 
-# st.write("Verificação de datas:")
-# st.write("Tipos de dados na coluna 'data':", df['data'].dtype)
-# st.write("Valores únicos na coluna 'data':", df['data'].unique())
+# Carregar configurações
+config = carregar_configuracoes()
+
+if config is None:
+    st.error('Por favor, configure o dashboard primeiro executando: streamlit run config.py')
+    st.stop()
 
 # Dividir o layout em duas colunas
 col1, col2 = st.columns([1, 6])  # Ajuste os pesos das colunas conforme necessário
@@ -109,21 +113,28 @@ with aba2:
             st.metric('FATURAMENTO TOTAL', formatar_moeda(total_faturamento))
             
             # Criar os gráficos com dados filtrados
-            mapa_estado = criar_mapa_estado(df_filtrado)
-            grafico_barras_estado = criar_grafico_barras_estado(df_filtrado)
-            
-            st.plotly_chart(mapa_estado, use_container_width=True)
-            st.plotly_chart(grafico_barras_estado, use_container_width=True)
+            if config.get('mapa', True):
+                st.subheader('Mapa de Faturamento por Estado/País')
+                graf_map_estado = criar_mapa_estado(df_filtrado)
+                st.plotly_chart(graf_map_estado, use_container_width=True)
+
+            if config.get('barras_estado', True):
+                st.subheader('Top 5 Estados/Países por Faturamento')
+                grafbar_fat_estado = criar_grafico_barras_estado(df_filtrado)
+                st.plotly_chart(grafbar_fat_estado, use_container_width=True)
+
+            if config.get('linha_mensal', True):
+                st.subheader('Faturamento Mensal')
+                graflinha_fat_mensal = criar_grafico_linha_mensal(df_filtrado)
+                st.plotly_chart(graflinha_fat_mensal, use_container_width=True)
             
         with coluna2:
             qtd_total_vendas = df_filtrado.groupby("nota").size().reset_index(name="qtd_vendas")
             total_vendas = f'{qtd_total_vendas["qtd_vendas"].sum()} Unidades'
             st.metric("Total de vendas: ", total_vendas)
             
-            grafico_linha_mensal = criar_grafico_linha_mensal(df_filtrado)
             grafico_barras_categoria = criar_grafico_barras_categoria(df_filtrado)
             
-            st.plotly_chart(grafico_linha_mensal, use_container_width=True)
             st.plotly_chart(grafico_barras_categoria, use_container_width=True)
             
     except Exception as e:
