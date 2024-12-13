@@ -78,6 +78,24 @@ def formatar_numero_br(numero):
     """Formata um número para o padrão brasileiro (ex: 1.234,56)"""
     return f"{numero:,}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+def formata_colunas_monetarias(valor):
+    """Formata valores monetários para o padrão brasileiro"""
+    if pd.isna(valor):
+        return ""
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+def formatar_data(data):
+    """Formata data para o padrão brasileiro"""
+    if pd.isna(data):
+        return ""
+    return data.strftime('%d-%m-%Y')
+
+def formatar_datetime(data):
+    """Formata datetime para o padrão brasileiro"""
+    if pd.isna(data):
+        return ""
+    return data.strftime('%d-%m-%Y %H:%M:%S')
+
 def mostrar_configuracao():
     st.title('Configuração do Dashboard')
     st.write('Selecione os gráficos que deseja visualizar:')
@@ -289,29 +307,88 @@ def mostrar_dashboard():
         # Filtrar o DataFrame baseado na busca
         if texto_busca:
             mascara = pd.DataFrame(False, index=df.index, columns=['match'])
-            for coluna in colunas_selecionadas:
+            # Usar os nomes originais das colunas para a busca
+            colunas_originais = [col for col, novo_nome in mapeamento_colunas.items() 
+                               if novo_nome in colunas_selecionadas]
+            
+            for coluna in colunas_originais:  # Usar nomes originais aqui
                 mascara['match'] |= df[coluna].astype(str).str.contains(texto_busca, case=False, na=False)
             df_filtrado = df[mascara['match']]
         else:
             df_filtrado = df
             
-        # Converter nomes das colunas selecionadas de volta para os nomes originais
-        colunas_originais = [col for col, novo_nome in mapeamento_colunas.items() 
-                           if novo_nome in colunas_selecionadas]
-        
         # Mostrar o DataFrame com as colunas renomeadas
         if colunas_selecionadas:
+            # Converter nomes das colunas selecionadas de volta para os nomes originais
+            colunas_originais = [col for col, novo_nome in mapeamento_colunas.items() 
+                               if novo_nome in colunas_selecionadas]
+            
             df_exibir = df_filtrado[colunas_originais].copy()
             df_exibir.columns = [mapeamento_colunas.get(col, col) for col in df_exibir.columns]
             
+            # Reordenar para colocar 'Descrição da Transação' após 'Transação'
+            if 'Transação' in df_exibir.columns and 'Descrição da Transação' in df_exibir.columns:
+                cols = df_exibir.columns.tolist()
+                trans_idx = cols.index('Transação')
+                cols.remove('Descrição da Transação')
+                cols.insert(trans_idx + 1, 'Descrição da Transação')
+                df_exibir = df_exibir[cols]
+            
+            # Formatar colunas numéricas sem separador de milhares
+            colunas_sem_formato = ['Sequencial', 'O.S.', 'Cód. do Grupo', 'Cód. Vendedor']
+            for col in colunas_sem_formato:
+                if col in df_exibir.columns:
+                    df_exibir[col] = df_exibir[col].fillna('').astype(str).replace('\.0$', '', regex=True)
+            
+            # Formatar colunas de data
+            if 'Data Cadastro' in df_exibir.columns:
+                df_exibir['Data Cadastro'] = df_exibir['Data Cadastro'].apply(formatar_data)
+            if 'Data Emissão' in df_exibir.columns:
+                df_exibir['Data Emissão'] = df_exibir['Data Emissão'].apply(formatar_data)
+            if 'Dt. Lib. Fatura' in df_exibir.columns:
+                df_exibir['Dt. Lib. Fatura'] = df_exibir['Dt. Lib. Fatura'].apply(formatar_datetime)
+            
+            # Formatar colunas monetárias
+            colunas_monetarias = [
+                'Valor Faturado', 'Valor IPI', 'Valor ICMS', 'Valor ISS', 
+                'Valor Sub. Trib.', 'Valor do Frete', 'Valor da Nota', 
+                'Valor Contábil', 'Ret. Valor PIS', 'Ret. Valor COFINS', 
+                'Base ICMS', 'Valor Custo', 'Valor do Desconto'
+            ]
+            for col in colunas_monetarias:
+                if col in df_exibir.columns:
+                    df_exibir[col] = df_exibir[col].apply(formata_colunas_monetarias)
+            
             # Mostrar informações sobre o dataset
             total_registros = len(df_exibir)
-            st.write(f'Total de registros: {formatar_numero_br(total_registros)}')
+            num_paginas = (total_registros + registros_por_pagina - 1) // registros_por_pagina
+            st.write(f'Total de registros: {formatar_numero_br(total_registros)} | Total de páginas: {formatar_numero_br(num_paginas)}')
             
             # Adicionar paginação
-            num_paginas = (total_registros + registros_por_pagina - 1) // registros_por_pagina
             if num_paginas > 1:
-                pagina_atual = st.number_input('Página:', min_value=1, max_value=num_paginas, value=1) - 1
+                # Adicionar CSS para controlar a largura do input
+                st.markdown("""
+                    <style>
+                    [data-testid="stNumberInput"] {
+                        width: 100px !important;
+                    }
+                    /* Ajusta o container do input */
+                    [data-testid="stNumberInput"] > div {
+                        width: 100px !important;
+                    }
+                    /* Ajusta o input em si */
+                    [data-testid="stNumberInput"] input {
+                        width: 100px !important;
+                        text-align: center;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+                
+                # Criar uma coluna estreita para o input de página
+                col_pagina1, col_pagina2 = st.columns([1, 15])
+                with col_pagina1:
+                    pagina_atual = st.number_input('Página:', min_value=1, max_value=num_paginas, value=1) - 1
+                
                 inicio = pagina_atual * registros_por_pagina
                 fim = min(inicio + registros_por_pagina, total_registros)
                 

@@ -13,7 +13,7 @@ spark = SparkSession.builder \
 # spark = SparkSession.builder.appName('processamento').getOrCreate()
 
 # url com os dados
-url = '
+url = 'http://tecnolife.empresamix.info:8077/POWERBI/?CLIENTE=TECNOLIFE&ID=XIOPMANA&VIEW=CUBO_FATURAMENTO'
 
 
 # Fazer a requisição
