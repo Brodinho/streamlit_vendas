@@ -18,6 +18,66 @@ st.set_page_config(
 
 image = Image.open('imagens/sales.png')
 
+# Dicionário de mapeamento de nomes de colunas
+mapeamento_colunas = {
+    'sequencial': 'Sequencial',
+    'tipo': 'Tipo Movimento',
+    'codtra': 'Transação',
+    'os': 'O.S.',
+    'itemOS': 'Item O.S.',
+    'codcli': 'Código Cliente',
+    'cnpj': 'CNPJ',
+    'razao': 'Razão Social',
+    'fantasia': 'Fantasia',
+    'cfop': 'CFOP',
+    'data': 'Data Cadastro',
+    'emissao': 'Data Emissão',
+    'nota': 'Nota Número',
+    'serie': 'Série',
+    'chaveNfe': 'Chave NF-e',
+    'item': 'Item',
+    'codProduto': 'Cód. do Produto',
+    'produto': 'Produto',
+    'unidSaida': 'Unid. de Saída',
+    'ncm': 'NCM',
+    'codGrupo': 'Cód. do Grupo',
+    'grupo': 'Grupo',
+    'codSubGrupo': 'Cód. Sub-Grupo',
+    'codVendedor': 'Cód. Vendedor',
+    'vendedorRed': 'Vendedor Reduzido',
+    'cidade': 'Cidade',
+    'uf': 'U.F.',
+    'tipoOs': 'Tipo OS',
+    'descricaoTipoOs': 'Descrição Tipo OS',
+    'codRegiao': 'Cód. Região',
+    'valorfaturado': 'Valor Faturado',
+    'quant': 'Quantidade',
+    'valoripi': 'Valor IPI',
+    'valoricms': 'Valor ICMS',
+    'valoriss': 'Valor ISS',
+    'valorSubs': 'Valor Sub. Trib.',
+    'valorFrete': 'Valor do Frete',
+    'valorNota': 'Valor da Nota',
+    'valorContabil': 'Valor Contábil',
+    'retVlrPis': 'Ret. Valor PIS',
+    'retVlrCofins': 'Ret. Valor COFINS',
+    'aliIpi': 'Alíquota IPI',
+    'porReducaoIcms': 'Porc.Redução ICMS',
+    'cstIcms': 'CST ICMS',
+    'baseIcms': 'Base ICMS',
+    'valorCusto': 'Valor Custo',
+    'valorDesconto': 'Valor do Desconto',
+    'desctra': 'Descrição da Transação',
+    'servico': 'Serviço',
+    'libFatura': 'Dt. Lib. Fatura',
+    'latitude': 'Latitude',
+    'longitude': 'Longitude'
+}
+
+def formatar_numero_br(numero):
+    """Formata um número para o padrão brasileiro (ex: 1.234,56)"""
+    return f"{numero:,}".replace(",", "X").replace(".", ",").replace("X", ".")
+
 def mostrar_configuracao():
     st.title('Configuração do Dashboard')
     st.write('Selecione os gráficos que deseja visualizar:')
@@ -178,8 +238,90 @@ def mostrar_dashboard():
 
     with tab2:  # Aba do Dataset
         st.header("Dataset")
-        # Adicione aqui o código para exibir o dataset
-        st.dataframe(df)
+        
+        # Criar colunas para organizar os controles
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            # Obter todas as colunas disponíveis com os novos nomes
+            todas_colunas = [mapeamento_colunas.get(col, col) for col in df.columns]
+            
+            # Inicializar o estado da sessão se necessário
+            if 'colunas_selecionadas' not in st.session_state:
+                st.session_state.colunas_selecionadas = todas_colunas
+            
+            # Criar um multiselect para seleção de colunas
+            colunas_selecionadas = st.multiselect(
+                'Selecione as colunas para visualização:',
+                todas_colunas,
+                default=st.session_state.colunas_selecionadas
+            )
+            
+            # Criar colunas para os botões
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
+                if st.button('Selecionar Todas'):
+                    st.session_state.colunas_selecionadas = todas_colunas
+                    st.rerun()
+            
+            with btn_col2:
+                if st.button('Limpar Seleção'):
+                    st.session_state.colunas_selecionadas = []
+                    st.rerun()
+        
+        with col2:
+            # Adicionar campo de busca para filtrar linhas
+            texto_busca = st.text_input('Buscar em todas as colunas:', '')
+        
+        # Criar uma nova linha para o slider de registros por página
+        st.write("")  # Adiciona um espaço
+        col_slider1, col_slider2 = st.columns([2, 4])
+        
+        with col_slider1:
+            # Adicionar número de registros por página
+            registros_por_pagina = st.select_slider(
+                'Registros por página:',
+                options=[10, 25, 50, 100],
+                value=25,
+                key='registros_por_pagina'
+            )
+        
+        # Filtrar o DataFrame baseado na busca
+        if texto_busca:
+            mascara = pd.DataFrame(False, index=df.index, columns=['match'])
+            for coluna in colunas_selecionadas:
+                mascara['match'] |= df[coluna].astype(str).str.contains(texto_busca, case=False, na=False)
+            df_filtrado = df[mascara['match']]
+        else:
+            df_filtrado = df
+            
+        # Converter nomes das colunas selecionadas de volta para os nomes originais
+        colunas_originais = [col for col, novo_nome in mapeamento_colunas.items() 
+                           if novo_nome in colunas_selecionadas]
+        
+        # Mostrar o DataFrame com as colunas renomeadas
+        if colunas_selecionadas:
+            df_exibir = df_filtrado[colunas_originais].copy()
+            df_exibir.columns = [mapeamento_colunas.get(col, col) for col in df_exibir.columns]
+            
+            # Mostrar informações sobre o dataset
+            total_registros = len(df_exibir)
+            st.write(f'Total de registros: {formatar_numero_br(total_registros)}')
+            
+            # Adicionar paginação
+            num_paginas = (total_registros + registros_por_pagina - 1) // registros_por_pagina
+            if num_paginas > 1:
+                pagina_atual = st.number_input('Página:', min_value=1, max_value=num_paginas, value=1) - 1
+                inicio = pagina_atual * registros_por_pagina
+                fim = min(inicio + registros_por_pagina, total_registros)
+                
+                df_pagina = df_exibir.iloc[inicio:fim]
+                st.dataframe(df_pagina)
+                st.write(f'Mostrando registros {formatar_numero_br(inicio+1)} a {formatar_numero_br(fim)} de {formatar_numero_br(total_registros)}')
+            else:
+                st.dataframe(df_exibir)
+        else:
+            st.warning('Por favor, selecione pelo menos uma coluna para visualizar os dados.')
 
     with tab3:  # Aba de Vendedores
         st.header("Vendedores")
