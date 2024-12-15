@@ -63,36 +63,46 @@ coordenadas_paises = {
 }
 
 # Modificação na construção do df_fat_estado
-def criar_df_fat_estado(df, ano=None):
-    # Criar uma cópia do DataFrame original
-    df_temp = df.copy()
+def criar_df_fat_estado(df):
+    # Dicionário com as coordenadas dos estados
+    coordenadas_estados = {
+        'AC': {'latitude': -8.77, 'longitude': -70.55},
+        'AL': {'latitude': -9.71, 'longitude': -35.73},
+        'AM': {'latitude': -3.07, 'longitude': -61.66},
+        'AP': {'latitude': 1.41, 'longitude': -51.77},
+        'BA': {'latitude': -12.96, 'longitude': -38.51},
+        'CE': {'latitude': -3.71, 'longitude': -38.54},
+        'DF': {'latitude': -15.78, 'longitude': -47.92},
+        'ES': {'latitude': -20.31, 'longitude': -40.31},
+        'GO': {'latitude': -16.64, 'longitude': -49.31},
+        'MA': {'latitude': -2.55, 'longitude': -44.30},
+        'MG': {'latitude': -19.92, 'longitude': -43.93},
+        'MS': {'latitude': -20.44, 'longitude': -54.64},
+        'MT': {'latitude': -15.60, 'longitude': -56.10},
+        'PA': {'latitude': -1.45, 'longitude': -48.50},
+        'PB': {'latitude': -7.12, 'longitude': -34.86},
+        'PE': {'latitude': -8.05, 'longitude': -34.92},
+        'PI': {'latitude': -5.09, 'longitude': -42.80},
+        'PR': {'latitude': -25.42, 'longitude': -49.27},
+        'RJ': {'latitude': -22.91, 'longitude': -43.20},
+        'RN': {'latitude': -5.79, 'longitude': -35.20},
+        'RO': {'latitude': -8.76, 'longitude': -63.90},
+        'RR': {'latitude': 2.82, 'longitude': -60.67},
+        'RS': {'latitude': -30.03, 'longitude': -51.23},
+        'SC': {'latitude': -27.59, 'longitude': -48.54},
+        'SE': {'latitude': -10.90, 'longitude': -37.07},
+        'SP': {'latitude': -23.55, 'longitude': -46.63},
+        'TO': {'latitude': -10.17, 'longitude': -48.33}
+    }
     
-    # Filtrar por ano se especificado
-    if ano is not None:
-        df_temp = df_temp[df_temp['data'].dt.year == ano]
+    # Agrupa por estado e soma o valor faturado
+    df_temp = df.groupby('uf')['valorfaturado'].sum().reset_index()
     
-    # Onde uf é 'EX', substituir pela sigla do país da coluna regiao
-    mascara_ex = df_temp['uf'] == 'EX'
-    df_temp.loc[mascara_ex, 'uf'] = df_temp.loc[mascara_ex, 'regiao'].apply(extrair_sigla_pais)
+    # Adiciona as coordenadas
+    df_temp['latitude'] = df_temp['uf'].map(lambda x: coordenadas_estados.get(x, {}).get('latitude'))
+    df_temp['longitude'] = df_temp['uf'].map(lambda x: coordenadas_estados.get(x, {}).get('longitude'))
     
-    # Agrupamento por uf
-    df_fat_estado = df_temp.groupby("uf")[["valorNota"]].sum()
-    
-    # Merge com as informações de latitude e longitude
-    df_fat_estado = (df_temp.drop_duplicates(subset="uf")[["uf", "latitude", "longitude"]]
-                    .merge(df_fat_estado, left_on="uf", right_index=True)
-                    .sort_values("valorNota", ascending=False))
-    
-    # Adicionar coordenadas para países estrangeiros
-    for index, row in df_fat_estado.iterrows():
-        if pd.isna(row['latitude']) and row['uf'] in coordenadas_paises:
-            df_fat_estado.at[index, 'latitude'] = coordenadas_paises[row['uf']]['lat']
-            df_fat_estado.at[index, 'longitude'] = coordenadas_paises[row['uf']]['lon']
-    
-    # Renomeando a coluna valorNota
-    df_fat_estado = df_fat_estado.rename(columns={'valorNota': 'Faturamento'})
-    
-    return df_fat_estado
+    return df_temp
 
 # -------------------- FUNÕES: FIM -------------------- #
 

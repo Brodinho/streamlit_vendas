@@ -1,0 +1,23 @@
+import pandas as pd
+import requests
+
+# URL da API
+url = "http://tecnolife.empresamix.info:8077/POWERBI/?CLIENTE=TECNOLIFE&ID=XIOPMANA&VIEW=CUBO_FATURAMENTO"
+
+# Fazer requisição GET para a API
+response = requests.get(url)
+data = response.json()
+
+# Converter para DataFrame
+df = pd.DataFrame(data)
+
+# Mapeamento de nomes de colunas
+date_columns = ['data', 'emissao', 'libFatura']
+
+# Converter colunas de data
+for col in date_columns:
+    if col in df.columns:
+        df[col] = pd.to_datetime(df[col], errors='coerce')
+
+# Tratar valores nulos na coluna vendedor
+df['vendedor'] = df['vendedor'].fillna('Não Informado')
