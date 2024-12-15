@@ -96,34 +96,6 @@ def formatar_datetime(data):
         return ""
     return data.strftime('%d-%m-%Y %H:%M:%S')
 
-def mostrar_configuracao():
-    st.title('Configuração do Dashboard')
-    st.write('Selecione os gráficos que deseja visualizar:')
-
-    # Lista completa de gráficos disponíveis
-    graficos = {
-        'mapa': 'Mapa de Faturamento por Estado/País',
-        'barras_estado': 'Gráfico de Barras - Top 5 Estados/Países',
-        'linha_mensal': 'Gráfico de Linha - Faturamento Mensal',
-        'barras_categoria': 'Gráfico de Barras - Faturamento por Categoria'
-    }
-
-    # Carregar configurações salvas (se existirem)
-    config_salva = carregar_configuracoes()
-    
-    # Criar checkboxes para cada gráfico
-    selecao_graficos = {}
-    for key, descricao in graficos.items():
-        # Use a configuração salva se existir, caso contrário use True como padrão
-        valor_padrao = config_salva.get(key, True) if config_salva else True
-        selecao_graficos[key] = st.checkbox(descricao, value=valor_padrao)
-
-    # Botão para salvar configurações
-    if st.button('Salvar Configurações e Visualizar Dashboard'):
-        salvar_configuracoes(selecao_graficos)
-        st.session_state.pagina = 'dashboard'
-        st.rerun()
-
 def mostrar_dashboard():
     # Adicionar CSS e JavaScript para traduzir textos padrão
     st.markdown("""
@@ -188,336 +160,152 @@ def mostrar_dashboard():
         st.subheader("E m p r e s a m i x")
 
     # Criar abas
-    tab1, tab2, tab3 = st.tabs(["📊 Gráficos", "📋 Dataset", "👥 Vendedores"])
+    tab_graficos, tab_dataset, tab_vendedores = st.tabs(["📊 Gráficos", "📋 Dataset", "👥 Vendedores"])
 
-    with tab1:  # Aba de Gráficos
-        # Adicionar seletor de ano com múltipla seleção e largura controlada
+    # Aba de Gráficos
+    with tab_graficos:
+        # Menu lateral dos gráficos
+        with st.sidebar:
+            st.header('Configuração dos Gráficos')
+            st.write('Selecione os gráficos que deseja visualizar:')
+            
+            graficos = {
+                'mapa': 'Mapa de Faturamento por Estado/País',
+                'barras_estado': 'Gráfico de Barras - Top 5 Estados/Países',
+                'linha_mensal': 'Gráfico de Linha - Faturamento Mensal',
+                'barras_categoria': 'Gráfico de Barras - Faturamento por Categoria'
+            }
+            
+            selecao_graficos = {}
+            for key, descricao in graficos.items():
+                selecao_graficos[key] = st.checkbox(
+                    descricao,
+                    value=True,
+                    key=f'check_{key}_graficos'
+                )
+
+        # Conteúdo dos gráficos
         anos_disponiveis = sorted(df['data'].dt.year.dropna().unique().astype(int))
         if anos_disponiveis:
-            # CSS para controlar a largura dinâmica mantendo altura fixa
-            st.markdown(
-                """
-                <style>
-                /* Container principal do multiselect */
-                div[data-testid="stMultiSelect"] {
-                    min-width: 150px;
-                    width: auto !important;
-                    display: inline-block !important;
-                }
-                
-                /* Container dos itens selecionados */
-                div[data-testid="stMultiSelect"] > div {
-                    width: auto !important;
-                    min-width: 150px;
-                    display: inline-flex !important;
-                }
-                
-                /* Container que mostra os itens selecionados */
-                div[data-testid="stMultiSelect"] > div > div {
-                    height: 38px !important;
-                    display: inline-flex !important;
-                    flex-direction: row !important;
-                    flex-wrap: nowrap !important;
-                    gap: 4px;
-                    overflow: visible !important;
-                    width: auto !important;
-                }
-                
-                /* Estilo para os botões individuais */
-                div[data-testid="stMultiSelect"] div[role="button"] {
-                    white-space: nowrap;
-                    display: inline-block !important;
-                }
-
-                /* Container da coluna */
-                div.stColumn {
-                    width: auto !important;
-                    min-width: 150px !important;
-                    flex-grow: 1 !important;
-                }
-                </style>
-                """, 
-                unsafe_allow_html=True
+            anos_selecionados = st.multiselect(
+                'Selecione o(s) ano(s):', 
+                ['Todos'] + [str(ano) for ano in anos_disponiveis],
+                default=['Todos']
             )
             
-            # Criar uma coluna que se ajusta ao conteúdo
-            col1, col2 = st.columns([3, 3])  # Proporção mais equilibrada
-            with col1:
-                # Adicionar opção "Todos" e permitir múltipla seleção
-                opcoes_anos = ['Todos'] + [str(ano) for ano in anos_disponiveis]
-                anos_selecionados = st.multiselect(
-                    'Selecione o(s) Ano(s):', 
-                    opcoes_anos,
-                    default=['Todos']
-                )
-            
-            # Lógica para tratar a seleção
-            if 'Todos' in anos_selecionados:
-                anos_filtro = anos_disponiveis
+            if not anos_selecionados:
+                st.warning('É necessário escolher ao menos um ano ou período')
             else:
-                anos_filtro = [int(ano) for ano in anos_selecionados]
+                # Filtrar dados pelos anos selecionados
+                if 'Todos' in anos_selecionados:
+                    df_ano = df.copy()
+                else:
+                    anos_int = [int(ano) for ano in anos_selecionados]
+                    df_ano = df[df['data'].dt.year.isin(anos_int)]
                 
-            if not anos_selecionados:  # Se nenhum ano selecionado
-                st.warning('Por favor, selecione pelo menos um ano.')
-                return
-        else:
-            st.error('Não há dados com datas válidas disponíveis')
-            return
+                # Layout em colunas
+                col1, col2 = st.columns(2)
+                
+                # Mapa de Faturamento por Estado
+                if selecao_graficos.get('mapa', True):
+                    with col1:
+                        fig_map = criar_mapa_estado(df_ano)
+                        st.plotly_chart(fig_map, use_container_width=True)
+                
+                # Gráfico de Barras - Top 5 Estados
+                if selecao_graficos.get('barras_estado', True):
+                    with col2:
+                        fig_barras = criar_grafico_barras_estado(df_ano)
+                        st.plotly_chart(fig_barras, use_container_width=True)
+                
+                # Gráfico de Linha - Faturamento Mensal
+                if selecao_graficos.get('linha_mensal', True):
+                    with col1:
+                        fig_linha = criar_grafico_linha_mensal(df_ano)
+                        st.plotly_chart(fig_linha, use_container_width=True)
+                
+                # Gráfico de Barras - Faturamento por Categoria
+                if selecao_graficos.get('barras_categoria', True):
+                    with col2:
+                        fig_categoria = criar_grafico_barras_categoria(df_ano)
+                        st.plotly_chart(fig_categoria, use_container_width=True)
 
-        config = carregar_configuracoes()
-        
-        if config is None:
-            st.error('Erro ao carregar configurações')
-            st.session_state.pagina = 'config'
-            st.rerun()
-
-        if config.get('mapa', True):
-            st.subheader('Mapa de Faturamento por Estado e Países')
-            graf_map_estado = criar_mapa_estado(df, anos_filtro)
-            if graf_map_estado is not None:
-                st.plotly_chart(graf_map_estado, use_container_width=True)
-            else:
-                st.warning(f'Não há dados disponíveis para o(s) ano(s) selecionado(s)')
-
-        if config.get('barras_estado', True):
-            st.subheader('Estados e Países com maior faturamento (Top 5)')
-            grafbar_fat_estado = criar_grafico_barras_estado(df, anos_filtro)
-            if grafbar_fat_estado is not None:
-                st.plotly_chart(grafbar_fat_estado, use_container_width=True)
-            else:
-                st.warning(f'Não há dados disponíveis para o(s) ano(s) selecionado(s)')
-
-        if config.get('linha_mensal', True):
-            st.subheader('Faturamento anual mês-a-mês')
-            graflinha_fat_mensal = criar_grafico_linha_mensal(df, anos_filtro)
-            if graflinha_fat_mensal is not None:
-                st.plotly_chart(graflinha_fat_mensal, use_container_width=True)
-            else:
-                st.warning('Não há dados disponíveis para o gráfico de linha mensal')
-
-        if config.get('barras_categoria', True):
-            st.subheader('Faturamento por Sub-Categoria (Top 5)')
-            graf_fat_categoria = criar_grafico_barras_categoria(df, anos_filtro)
-            if graf_fat_categoria is not None:
-                st.plotly_chart(graf_fat_categoria, use_container_width=True)
-            else:
-                st.warning('Não há dados disponíveis para o gráfico de categorias')
-
-    with tab2:  # Aba do Dataset
-        st.header("Dataset")
-        
-        # Inicializar df_filtrado com o DataFrame original
-        df_filtrado = df.copy()
-        
-        # Mover filtros para a sidebar
+    # Aba do Dataset
+    with tab_dataset:
+        # Menu lateral do dataset
         with st.sidebar:
-            st.header("Filtros")
+            st.header("Filtros do Dataset")
             
-            # Obter todas as colunas disponíveis com os novos nomes
-            todas_colunas = [mapeamento_colunas.get(col, col) for col in df.columns]
+            # Obter apenas as colunas que existem no DataFrame
+            colunas_existentes = df.columns
+            mapeamento_colunas_existentes = {
+                col: mapeamento_colunas[col] 
+                for col in colunas_existentes 
+                if col in mapeamento_colunas
+            }
             
-            # Inicializar o estado da sessão se necessário
-            if 'colunas_selecionadas' not in st.session_state:
-                st.session_state.colunas_selecionadas = todas_colunas
+            # Inicializar session_state se necessário
+            if 'colunas_dataset' not in st.session_state:
+                st.session_state['colunas_dataset'] = list(mapeamento_colunas_existentes.values())
             
-            # Criar um multiselect para seleção de colunas
+            # Botões de Selecionar Todos e Limpar Seleção
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button('Selecionar Todos'):
+                    st.session_state['colunas_dataset'] = list(mapeamento_colunas_existentes.values())
+            with col2:
+                if st.button('Limpar Seleção'):
+                    st.session_state['colunas_dataset'] = []
+            
+            # Seleção de colunas usando nomes formatados
+            todas_colunas = list(mapeamento_colunas_existentes.values())
             colunas_selecionadas = st.multiselect(
                 'Selecione as colunas:',
                 todas_colunas,
-                default=st.session_state.colunas_selecionadas
+                default=None,  # Removido o valor default
+                key='colunas_dataset'
             )
             
-            # Criar colunas para os botões de seleção de colunas
-            btn_col1, btn_col2 = st.columns(2)
-            with btn_col1:
-                if st.button('Selecionar Todas'):
-                    st.session_state.colunas_selecionadas = todas_colunas
-                    st.rerun()
+            # Campo de busca
+            texto_busca = st.text_input('Buscar em todas as colunas:', key='busca_dataset')
             
-            with btn_col2:
-                if st.button('Limpar Seleção'):
-                    st.session_state.colunas_selecionadas = []
-                    st.rerun()
-            
-            # Adicionar campo de busca
-            texto_busca = st.text_input('Buscar em todas as colunas:', '')
-            
-            # Adicionar CSS para controlar a largura dos dropdowns
-            st.markdown("""
-                <style>
-                /* Container principal do selectbox */
-                div[data-testid="stSelectbox"] {
-                    min-width: 150px;
-                    width: auto !important;
-                }
-                
-                /* Container do selectbox em si */
-                div[data-testid="stSelectbox"] > div {
-                    min-width: 150px;
-                    width: auto !important;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-            
-            # Filtros de ano e mês em colunas mais compactas
+            # Filtros de ano e mês
             col_filtro1, col_filtro2 = st.columns([1, 1])
-            
             with col_filtro1:
-                # Obter anos únicos da coluna Data Emissão
-                anos_disponiveis = sorted(df_filtrado['emissao'].dt.year.dropna().unique())
-                if anos_disponiveis:
-                    ano_selecionado = st.selectbox(
-                        'Ano:',
-                        ['Todos'] + [str(ano) for ano in anos_disponiveis],
-                        key='ano_filtro'
-                    )
+                anos_disponiveis = sorted(df['emissao'].dt.year.dropna().unique())
+                ano_selecionado = st.selectbox(
+                    'Ano:',
+                    ['Todos'] + [str(ano) for ano in anos_disponiveis],
+                    key='ano_dataset'
+                )
             
             with col_filtro2:
-                # Lista de meses em português
                 meses = ['Todos', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-                mes_selecionado = st.selectbox('Mês:', meses, key='mes_filtro')
-            
-            # Adicionar expander para filtros avançados
-            with st.expander("🔍 Filtros Avançados"):
-                # Identificar tipos de colunas
-                colunas_numericas = []
-                colunas_data = []
-                colunas_texto = []
-                
-                for col_original, col_nova in mapeamento_colunas.items():
-                    if col_nova not in colunas_selecionadas:
-                        continue
-                        
-                    if pd.api.types.is_numeric_dtype(df[col_original]):
-                        colunas_numericas.append((col_original, col_nova))
-                    elif pd.api.types.is_datetime64_any_dtype(df[col_original]):
-                        colunas_data.append((col_original, col_nova))
-                    else:
-                        colunas_texto.append((col_original, col_nova))
-                
-                # Criar filtros para colunas numéricas
-                if colunas_numericas:
-                    st.subheader("Filtros Numéricos")
-                    for col_original, col_nova in colunas_numericas:
-                        min_val = float(df[col_original].min())
-                        max_val = float(df[col_original].max())
-                        
-                        # Se min e max forem iguais, ajustar para criar um range válido
-                        if min_val == max_val:
-                            if min_val == 0:
-                                max_val = float(1)  # Converter para float
-                            else:
-                                # Criar um pequeno range em torno do valor
-                                delta = abs(min_val * 0.1)  # 10% do valor
-                                min_val = float(min_val - delta)  # Converter para float
-                                max_val = float(max_val + delta)  # Converter para float
-                        
-                        # Criar slider para cada coluna numérica
-                        valores = st.slider(
-                            f"Filtrar {col_nova}:",
-                            min_value=float(min_val),  # Garantir que é float
-                            max_value=float(max_val),  # Garantir que é float
-                            value=(float(min_val), float(max_val)),  # Garantir que ambos são float
-                            key=f"slider_{col_original}"
-                        )
-                        
-                        # Aplicar filtro
-                        df_filtrado = df_filtrado[
-                            (df_filtrado[col_original] >= valores[0]) & 
-                            (df_filtrado[col_original] <= valores[1])
-                        ]
-                
-                # Criar filtros para colunas de data
-                if colunas_data:
-                    st.subheader("Filtros de Data")
-                    for col_original, col_nova in colunas_data:
-                        # Remover valores NaT antes de pegar min e max
-                        datas_validas = df[col_original].dropna()
-                        if len(datas_validas) > 0:
-                            min_date = datas_validas.min()
-                            max_date = datas_validas.max()
-                            
-                            # Criar seletor de intervalo de datas
-                            datas = st.date_input(
-                                f"Filtrar {col_nova}:",
-                                value=(min_date, max_date),
-                                min_value=min_date,
-                                max_value=max_date,
-                                key=f"date_{col_original}"
-                            )
-                            
-                            if len(datas) == 2:
-                                data_inicio, data_fim = datas
-                                df_filtrado = df_filtrado[
-                                    (df_filtrado[col_original].dt.date >= data_inicio) & 
-                                    (df_filtrado[col_original].dt.date <= data_fim)
-                                ]
-                        else:
-                            st.warning(f'Não há datas válidas na coluna {col_nova}')
-                
-                # Criar filtros para colunas de texto
-                if colunas_texto:
-                    st.subheader("Filtros de Texto")
-                    for col_original, col_nova in colunas_texto:
-                        # Obter valores únicos
-                        valores_unicos = df[col_original].dropna().unique()
-                        if len(valores_unicos) <= 50:  # Limitar para colunas com poucos valores únicos
-                            valores_selecionados = st.multiselect(
-                                f"Filtrar {col_nova}:",
-                                options=sorted(valores_unicos),
-                                key=f"multi_{col_original}"
-                            )
-                            
-                            if valores_selecionados:
-                                df_filtrado = df_filtrado[
-                                    df_filtrado[col_original].isin(valores_selecionados)
-                                ]
-        
-        # Aplicar filtros de ano e mês
-        if ano_selecionado != 'Todos':
-            df_filtrado = df_filtrado[df_filtrado['emissao'].dt.year == int(ano_selecionado)]
-        
-        if mes_selecionado != 'Todos':
-            mes_numero = meses.index(mes_selecionado)
-            df_filtrado = df_filtrado[df_filtrado['emissao'].dt.month == mes_numero]
-        
-        # Aplicar filtro de busca
-        if texto_busca:
-            mascara = pd.DataFrame(False, index=df_filtrado.index, columns=['match'])
-            for coluna in df_filtrado.columns:
-                mascara['match'] |= df_filtrado[coluna].astype(str).str.contains(texto_busca, case=False, na=False)
-            df_filtrado = df_filtrado[mascara['match']]
-        
-        # Mostrar total de registros após filtro
-        total_filtrado = len(df_filtrado)
-        total_original = len(df)
-        
-        # Criar uma nova linha para o slider de registros por página
-        st.write("")  # Adiciona um espaço
-        col_slider1, col_slider2 = st.columns([2, 4])
-        
-        with col_slider1:
-            # Adicionar número de registros por página
-            registros_por_pagina = st.select_slider(
-                'Registros por página:',
-                options=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-                value=10,  # Valor inicial deve estar na lista de options
-                key='registros_por_pagina'
-            )
-        
-        # Mostrar o DataFrame com as colunas selecionadas
+                mes_selecionado = st.selectbox('Mês:', meses, key='mes_dataset')
+
+        # Conteúdo do dataset
         if colunas_selecionadas:
-            # Converter nomes das colunas selecionadas de volta para os nomes originais
-            colunas_originais = [col for col, novo_nome in mapeamento_colunas.items() 
-                               if novo_nome in colunas_selecionadas]
+            # Converter nomes formatados para nomes originais
+            mapeamento_reverso = {v: k for k, v in mapeamento_colunas_existentes.items()}
+            colunas_originais = [mapeamento_reverso[col] for col in colunas_selecionadas]
             
-            # Reorganizar colunas (Descrição da Transação após Transação)
-            if 'codtra' in colunas_originais and 'desctra' in colunas_originais:
-                idx_codtra = colunas_originais.index('codtra')
-                colunas_originais.remove('desctra')
-                colunas_originais.insert(idx_codtra + 1, 'desctra')
+            df_filtrado = df.copy()
             
+            # Aplicar filtros
+            if ano_selecionado != 'Todos':
+                df_filtrado = df_filtrado[df_filtrado['emissao'].dt.year == int(ano_selecionado)]
+            
+            if mes_selecionado != 'Todos':
+                mes_numero = meses.index(mes_selecionado)
+                df_filtrado = df_filtrado[df_filtrado['emissao'].dt.month == mes_numero]
+            
+            if texto_busca:
+                mascara = pd.DataFrame(False, index=df_filtrado.index, columns=['match'])
+                for coluna in df_filtrado.columns:
+                    mascara['match'] |= df_filtrado[coluna].astype(str).str.contains(texto_busca, case=False, na=False)
+                df_filtrado = df_filtrado[mascara['match']]
+
             df_exibir = df_filtrado[colunas_originais].copy()
             
             # Aplicar formatações
@@ -525,7 +313,6 @@ def mostrar_dashboard():
                 # Colunas sem formatação (números inteiros)
                 if coluna in ['sequencial', 'os', 'codGrupo', 'codVendedor', 'codcli', 'nota']:
                     df_exibir[coluna] = df_exibir[coluna].fillna('').astype(str).replace('\.0$', '', regex=True)
-                    # Remove formatação e converte para string, removendo o .0 dos números
                 
                 # Colunas de data (sem hora)
                 elif coluna in ['data', 'emissao']:
@@ -545,78 +332,54 @@ def mostrar_dashboard():
                         if pd.notnull(x) else "")
             
             # Renomear colunas para exibição
-            df_exibir.columns = [mapeamento_colunas.get(col, col) for col in df_exibir.columns]
+            df_exibir.columns = [mapeamento_colunas_existentes[col] for col in colunas_originais]
             
-            # Calcular número de páginas
-            num_paginas = max(1, (total_filtrado + registros_por_pagina - 1) // registros_por_pagina)
+            # Controles de paginação
+            total_registros = len(df_exibir)
             
-            # Criar uma coluna estreita para o input de página
-            col_pagina1, col_pagina2 = st.columns([1, 15])
-            with col_pagina1:
-                pagina_atual = st.number_input(
-                    'Página:', 
-                    min_value=1, 
-                    max_value=num_paginas, 
-                    value=min(1, num_paginas)
-                ) - 1
+            col1, col2 = st.columns([2, 4])
+            with col1:
+                registros_por_pagina = st.select_slider(
+                    'Registros por página:',
+                    options=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+                    value=10,
+                    key='registros_dataset'
+                )
             
-            inicio = pagina_atual * registros_por_pagina
-            fim = min(inicio + registros_por_pagina, total_filtrado)
+            num_paginas = (total_registros + registros_por_pagina - 1) // registros_por_pagina
+            pagina_atual = st.number_input(
+                'Página:',
+                min_value=1,
+                max_value=max(1, num_paginas),
+                value=1,
+                key='pagina_dataset'
+            )
             
-            # Mostrar informações de paginação
-            if total_filtrado > 0:
-                st.write(f"Mostrando {formatar_numero_br(inicio+1)} a {formatar_numero_br(fim)} de {formatar_numero_br(total_filtrado)} registros | Total de páginas: {formatar_numero_br(num_paginas)}")
-            else:
-                st.write("Nenhum registro encontrado")
+            inicio = (pagina_atual - 1) * registros_por_pagina
+            fim = min(inicio + registros_por_pagina, total_registros)
             
-            # Aplicar paginação ao DataFrame
-            df_pagina = df_exibir.iloc[inicio:fim]
-            st.dataframe(df_pagina)
+            st.write(f"Mostrando registros {inicio + 1} a {fim} de {total_registros} | Total de páginas: {num_paginas}")
+            
+            # Mostrar DataFrame paginado
+            st.dataframe(df_exibir.iloc[inicio:fim])
         else:
-            st.warning('Por favor, selecione pelo menos uma coluna para visualizar os dados.')
+            st.warning('Selecione pelo menos uma coluna para visualizar os dados.')
 
-    with tab3:  # Aba de Vendedores
-        st.header("Vendedores")
-        # Adicione aqui o código para exibir informações dos vendedores
-        vendedores = df[['vendedor', 'valorNota']].groupby('vendedor').sum().sort_values('valorNota', ascending=False)
-        st.dataframe(vendedores)
-
-    # Adicionar CSS para tradução
-    st.markdown("""
-        <style>
-        /* Tradução via CSS usando pseudo-elementos */
-        div[data-baseweb="input"] div[data-testid="stTextInput"]::after {
-            content: "Pressione Enter para aplicar" !important;
-        }
-        
-        div[role="listbox"] div[role="option"][aria-selected="false"]:empty::after {
-            content: "Sem resultados" !important;
-        }
-        
-        /* Controle de largura dos inputs */
-        [data-testid="stNumberInput"] {
-            width: 150px !important;
-        }
-        [data-testid="stNumberInput"] > div {
-            width: 150px !important;
-        }
-        [data-testid="stNumberInput"] input {
-            width: 150px !important;
-            text-align: center;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # Aba de Vendedores
+    with tab_vendedores:
+        # Menu lateral dos vendedores
+        with st.sidebar:
+            st.header("Filtros de Vendedores")
+            # ... resto do código dos vendedores ...
+            pass
 
 def main():
     # Inicializar o estado da sessão se necessário
     if 'pagina' not in st.session_state:
-        st.session_state.pagina = 'config'
+        st.session_state.pagina = 'dashboard'
 
-    # Mostrar a página apropriada
-    if st.session_state.pagina == 'config':
-        mostrar_configuracao()
-    else:
-        mostrar_dashboard()
+    # Agora vamos direto para o dashboard
+    mostrar_dashboard()
 
 if __name__ == '__main__':
     main()
