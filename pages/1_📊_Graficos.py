@@ -1,15 +1,22 @@
 import streamlit as st
 import pandas as pd
-from dataset import df
-from grafics import (criar_mapa_estado, criar_grafico_linha_mensal, 
-                    criar_grafico_barras_estado, criar_grafico_barras_categoria)
+import sys
+from pathlib import Path
 
-# Configuração da página
+# Configuração da página deve ser a primeira chamada Streamlit
 st.set_page_config(
     page_title="Gráficos - Dashboard de Vendas",
     page_icon="📊",
     layout="wide",
 )
+
+# Adiciona o diretório raiz ao path do Python
+root_path = Path(__file__).parent.parent
+sys.path.append(str(root_path))
+
+from dataset import df
+from grafics import (criar_mapa_estado, criar_grafico_linha_mensal, 
+                    criar_grafico_barras_estado, criar_grafico_barras_categoria)
 
 # Título da página
 st.title("📊 Gráficos e Visualizações")
@@ -23,7 +30,7 @@ with st.sidebar:
         'mapa': 'Mapa de Faturamento por Estado/País',
         'barras_estado': 'Gráfico de Barras - Top 5 Estados/Países',
         'linha_mensal': 'Gráfico de Linha - Faturamento Mensal',
-        'barras_categoria': 'Gráfico de Barras - Faturamento por Categoria'
+        'barras_categoria': 'Gráfico de Barras - Top 5 Categorias'
     }
     
     selecao_graficos = {}
