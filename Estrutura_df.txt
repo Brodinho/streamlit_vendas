@@ -14,14 +14,15 @@ Index(['sequencial', 'tipo', 'filial', 'codtra', 'os', 'itemOs', 'codcli',
 1 - Distribuição Geográfica:
 - Mapa de calor ou gráfico de barras por estado
 - Concentração de clientes por região
-
+----------------------------------------------------
 2 - Análise de Produtos:
 - Top categorias mais compradas pelos clientes
 - Distribuição de vendas por grupo/subgrupo de produtos
-
+----------------------------------------------------
 3 - Análise Temporal:
 - Evolução mensal do número de clientes ativos
 - Sazonalidade das compras
+----------------------------------------------------
 4 - Segmentação por Valor:
 - Distribuição dos clientes por faixas de valor
 - Pareto (80/20) dos clientes
