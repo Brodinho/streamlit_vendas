@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from dataset import df
 import locale
+import math
 
 # Configurar locale para português brasileiro
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
@@ -157,47 +158,58 @@ if vendedores_selecionados:
         
         with col1:
             # Gráfico de barras - Faturamento por vendedor
+            df_graph = df_vendedores.groupby('vendedor', as_index=False)['valorNota'].sum()
+            df_graph = df_graph.sort_values('valorNota', ascending=True)  # Ordenação ascendente para visualização correta
+            df_graph.columns = ['vendedor', 'valor']
+            
+            # Criar gráfico
             fig = px.bar(
-                metricas_vendedores.sort_values('valorfaturado', ascending=False),
-                x='vendedor',
-                y='valorfaturado',
-                title='Faturamento por Vendedor'
+                df_graph,
+                y='vendedor',
+                x='valor',
+                title='Análise Gráfica',
+                orientation='h'
             )
             
-            # Função para formatar valores monetários
-            def formato_moeda(valor):
+            # Configurar formato brasileiro para os valores do eixo X
+            def formato_br(valor):
                 return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             
-            # Calcular intervalo para o eixo y
-            max_valor = metricas_vendedores['valorfaturado'].max()
-            # Ajustar o intervalo baseado no valor máximo
-            if max_valor <= 2_000_000:
-                intervalo = 200_000
-            elif max_valor <= 5_000_000:
-                intervalo = 500_000
-            else:
-                intervalo = 1_000_000
+            # Calcular valores para o eixo X
+            max_valor = df_graph['valor'].max()
+            step = 3000000  # Step de 3 milhões
+            num_steps = math.ceil(max_valor / step)
+            max_escala = num_steps * step
+            tick_values = [i * step for i in range(num_steps + 1)]
             
-            # Criar array de valores para o eixo y
-            y_ticks = []
-            current_value = 0
-            while current_value <= max_valor:
-                y_ticks.append(current_value)
-                current_value += intervalo
-            if max_valor not in y_ticks:
-                y_ticks.append(max_valor)
-            
+            # Atualizar layout do gráfico
             fig.update_layout(
-                xaxis_title=None,
-                yaxis_title=None,
-                xaxis=dict(tickangle=45),
-                yaxis=dict(
-                    tickmode='array',
-                    ticktext=[formato_moeda(val) for val in y_ticks],
-                    tickvals=y_ticks,
-                    range=[0, max_valor * 1.1]  # Adiciona 10% de margem no topo
+                xaxis_title="",
+                yaxis_title="",
+                showlegend=False,
+                height=400,
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white"),
+                xaxis=dict(
+                    tickmode="array",
+                    tickvals=tick_values,
+                    ticktext=[formato_br(val) for val in tick_values],
+                    range=[0, max_escala],
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='rgba(128, 128, 128, 0.2)'
                 )
             )
+            
+            # Formatar valores nas barras
+            fig.update_traces(
+                text=[formato_br(val) for val in df_graph['valor']],
+                textposition='outside',  # Forçar texto para fora das barras
+                texttemplate='%{text}',
+                textangle=0  # Manter texto na horizontal
+            )
+            
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
@@ -250,7 +262,7 @@ if vendedores_selecionados:
                 yaxis_title=None,
                 yaxis=dict(
                     tickmode='array',
-                    ticktext=[formato_moeda(val) for val in y_ticks_linha],
+                    ticktext=[formato_br(val) for val in y_ticks_linha],
                     tickvals=y_ticks_linha,
                     range=[0, max_valor_linha * 1.1],  # Volta para 10% de margem
                     tickfont=dict(size=10)

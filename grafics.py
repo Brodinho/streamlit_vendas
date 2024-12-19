@@ -10,7 +10,6 @@ from utils import formatar_moeda, criar_df_fat_estado
 import math
 from sklearn.preprocessing import MinMaxScaler
 
-print(df.columns)
 # Configurar locale para português brasileiro
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 
@@ -283,21 +282,22 @@ def criar_grafico_barras_estado(df_filtrado):
     df_brasil = df_filtrado[df_filtrado['uf'] != 'EX'].copy()
     
     # Preparar dados
-    df_estados = df_brasil.groupby('uf')['valorfaturado'].sum().sort_values(ascending=False).head(5)
+    df_estados = df_brasil.groupby('uf')['valorfaturado'].sum().sort_values(ascending=True).head(5)
     
     # Criar gráfico
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=df_estados.index,
-        y=df_estados.values,
+        y=df_estados.index,
+        x=df_estados.values,
         text=[formatar_moeda(valor) for valor in df_estados.values],
         textposition='auto',
-        marker_color=['green' if i == 0 else '#636EFA' for i in range(len(df_estados))]
+        marker_color=['green' if i == 4 else '#636EFA' for i in range(len(df_estados))],
+        orientation='h'
     ))
     
-    # Configurar eixo Y
+    # Configurar eixo X (valores monetários)
     max_valor = df_estados.max()
-    step = 10000000  # Step de 10 milhões
+    step = 100000  # Step de 100 mil
     num_steps = math.ceil(max_valor / step)
     max_escala = num_steps * step
     tick_values = [i * step for i in range(num_steps + 1)]
@@ -306,7 +306,7 @@ def criar_grafico_barras_estado(df_filtrado):
         title='Top 5 Estados em Faturamento',
         xaxis_title="",
         yaxis_title="",
-        yaxis=dict(
+        xaxis=dict(
             tickmode="array",
             tickvals=tick_values,
             ticktext=[formatar_moeda(x) for x in tick_values],
@@ -326,21 +326,22 @@ def criar_grafico_barras_estado(df_filtrado):
 
 def criar_grafico_barras_categoria(df_filtrado):
     # Preparar dados usando subGrupo
-    df_categoria = df_filtrado.groupby('subGrupo')['valorfaturado'].sum().sort_values(ascending=False).head(5)
+    df_categoria = df_filtrado.groupby('subGrupo')['valorfaturado'].sum().sort_values(ascending=True).head(5)
     
     # Criar gráfico
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=df_categoria.index,
-        y=df_categoria.values,
+        y=df_categoria.index,
+        x=df_categoria.values,
         text=[formatar_moeda(valor) for valor in df_categoria.values],
         textposition='auto',
-        marker_color=['green' if i == 0 else '#636EFA' for i in range(len(df_categoria))]
+        marker_color=['green' if i == 4 else '#636EFA' for i in range(len(df_categoria))],
+        orientation='h'
     ))
     
-    # Configurar eixo Y
+    # Configurar eixo X (valores monetários)
     max_valor = df_categoria.max()
-    step = 10000000  # Step de 10 milhões
+    step = 1000  # Step de 1 mil
     num_steps = math.ceil(max_valor / step)
     max_escala = num_steps * step
     tick_values = [i * step for i in range(num_steps + 1)]
@@ -349,7 +350,7 @@ def criar_grafico_barras_categoria(df_filtrado):
         title='Top 5 Categorias em Faturamento',
         xaxis_title="",
         yaxis_title="",
-        yaxis=dict(
+        xaxis=dict(
             tickmode="array",
             tickvals=tick_values,
             ticktext=[formatar_moeda(x) for x in tick_values],
