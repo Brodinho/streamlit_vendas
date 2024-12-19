@@ -486,3 +486,350 @@ st.info("""
     df_grupos.nlargest(3).sum() / df_filtrado['valorNota'].sum(),
     df_filtrado['subGrupo'].nunique()
 )) 
+
+# Análise Temporal
+st.subheader("Análise Temporal")
+
+# Criar duas colunas para os gráficos
+col1, col2 = st.columns(2)
+
+with col1:
+    # Evolução mensal de clientes ativos
+    df_evolucao = df_filtrado.groupby(pd.Grouper(key='data', freq='M'))['razao'].nunique().reset_index()
+    df_evolucao['data'] = df_evolucao['data'].dt.strftime('%b/%Y')
+    
+    # Criar gráfico de linha
+    fig_evolucao = go.Figure()
+    fig_evolucao.add_trace(go.Scatter(
+        x=df_evolucao['data'],
+        y=df_evolucao['razao'],
+        mode='lines+markers',
+        name='Clientes Ativos',
+        line=dict(color='#2E64FE', width=3),
+        marker=dict(size=8)
+    ))
+    
+    # Configurar layout
+    fig_evolucao.update_layout(
+        title='Evolução Mensal de Clientes Ativos',
+        xaxis_title="",
+        yaxis_title="Número de Clientes",
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white"),
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128, 128, 128, 0.2)',
+            tickangle=45
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128, 128, 128, 0.2)',
+        )
+    )
+    
+    # Customizar hover
+    fig_evolucao.update_traces(
+        hovertemplate="<br>".join([
+            "Período: %{x}",
+            "Clientes Ativos: %{y:,.0f}",
+            "<extra></extra>"
+        ])
+    )
+    
+    st.plotly_chart(fig_evolucao, use_container_width=True)
+
+with col2:
+    # Sazonalidade por mês
+    df_filtrado['mes_num'] = df_filtrado['data'].dt.month  # Número do mês
+    df_filtrado['mes'] = df_filtrado['data'].dt.month_name()  # Nome do mês em inglês
+    
+    # Mapear nomes dos meses para português
+    meses_ordem = {
+        'January': 'Janeiro',
+        'February': 'Fevereiro',
+        'March': 'Março',
+        'April': 'Abril',
+        'May': 'Maio',
+        'June': 'Junho',
+        'July': 'Julho',
+        'August': 'Agosto',
+        'September': 'Setembro',
+        'October': 'Outubro',
+        'November': 'Novembro',
+        'December': 'Dezembro'
+    }
+    
+    # Traduzir os meses
+    df_filtrado['mes'] = df_filtrado['mes'].map(meses_ordem)
+    
+    # Calcular sazonalidade usando o número do mês para garantir a ordem correta
+    df_sazonalidade = df_filtrado.groupby(['mes_num', 'mes'])['valorNota'].sum().reset_index()
+    df_sazonalidade = df_sazonalidade.sort_values('mes_num')
+    
+    # Criar gráfico de barras
+    fig_sazonalidade = go.Figure()
+    
+    # Definir cores baseadas nos valores
+    cores = ['#2E64FE'] * len(df_sazonalidade)  # Cor padrão azul
+    idx_max = df_sazonalidade['valorNota'].values.argmax()
+    idx_min = df_sazonalidade['valorNota'].values.argmin()
+    cores[idx_max] = 'green'  # Maior valor em verde
+    cores[idx_min] = '#FF4D4D'  # Menor valor em vermelho
+    
+    fig_sazonalidade.add_trace(go.Bar(
+        x=df_sazonalidade['mes'],
+        y=df_sazonalidade['valorNota'],
+        text=[formatar_moeda(val) for val in df_sazonalidade['valorNota']],
+        textposition='outside',
+        marker_color=cores
+    ))
+    
+    # Configurar layout
+    fig_sazonalidade.update_layout(
+        title='Sazonalidade de Vendas por Mês',
+        xaxis_title="",
+        yaxis_title="Faturamento",
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white"),
+        showlegend=False,
+        xaxis=dict(
+            showgrid=False,
+            tickangle=45
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128, 128, 128, 0.2)',
+            tickformat=',.0f'
+        )
+    )
+    
+    # Customizar hover
+    fig_sazonalidade.update_traces(
+        hovertemplate="<br>".join([
+            "Mês: %{x}",
+            "Faturamento: %{text}",
+            "<extra></extra>"
+        ])
+    )
+    
+    st.plotly_chart(fig_sazonalidade, use_container_width=True)
+
+# Adicionar insights sobre temporalidade
+st.info("""
+    **Análise de Sazonalidade**
+    - O mês com maior número de clientes ativos é {:.0f}% superior à média mensal
+    - O período de {} a {} concentra {:.1%} do faturamento anual
+""".format(
+    (df_evolucao['razao'].max() / df_evolucao['razao'].mean() - 1) * 100,
+    df_sazonalidade.nlargest(3, 'valorNota')['mes'].iloc[0],
+    df_sazonalidade.nlargest(3, 'valorNota')['mes'].iloc[2],
+    df_sazonalidade.nlargest(3, 'valorNota')['valorNota'].sum() / df_sazonalidade['valorNota'].sum()
+)) 
+
+# Análise de Segmentação por Valor
+st.subheader("Segmentação por Valor")
+
+# Criar duas colunas para os gráficos
+col1, col2 = st.columns(2)
+
+with col1:
+    # Calcular faturamento total por cliente
+    df_faturamento_cliente = df_filtrado.groupby('razao')['valorNota'].sum().sort_values(ascending=True)
+    
+    # Definir faixas de valor
+    faixas = [
+        (0, 10000, 'Até R$ 10 mil'),
+        (10000, 50000, 'R$ 10 mil a R$ 50 mil'),
+        (50000, 100000, 'R$ 50 mil a R$ 100 mil'),
+        (100000, 500000, 'R$ 100 mil a R$ 500 mil'),
+        (500000, float('inf'), 'Acima de R$ 500 mil')
+    ]
+    
+    # Categorizar clientes
+    def categorizar_cliente(valor):
+        for min_val, max_val, label in faixas:
+            if min_val <= valor < max_val:
+                return label
+        return faixas[-1][2]  # Última categoria para valores maiores
+    
+    df_faixas = pd.DataFrame({
+        'faixa': [categorizar_cliente(valor) for valor in df_faturamento_cliente.values],
+        'valor': df_faturamento_cliente.values
+    })
+    
+    # Calcular estatísticas por faixa
+    df_stats = df_faixas.groupby('faixa').agg({
+        'valor': ['count', 'sum']
+    }).reset_index()
+    df_stats.columns = ['faixa', 'num_clientes', 'valor_total']
+    
+    # Ordenar faixas
+    ordem_faixas = [faixa[2] for faixa in faixas]
+    df_stats['faixa'] = pd.Categorical(df_stats['faixa'], categories=ordem_faixas, ordered=True)
+    df_stats = df_stats.sort_values('faixa')
+    
+    # Criar gráfico de barras
+    fig_faixas = go.Figure()
+    
+    # Adicionar barras para número de clientes
+    fig_faixas.add_trace(go.Bar(
+        name='Número de Clientes',
+        x=df_stats['faixa'],
+        y=df_stats['num_clientes'],
+        text=df_stats['num_clientes'],
+        textposition='outside',
+        yaxis='y',
+        offsetgroup=1
+    ))
+    
+    # Adicionar linha para valor total
+    fig_faixas.add_trace(go.Scatter(
+        name='Valor Total',
+        x=df_stats['faixa'],
+        y=df_stats['valor_total'],
+        text=[formatar_moeda(val) for val in df_stats['valor_total']],
+        mode='lines+markers+text',
+        textposition='top center',
+        yaxis='y2',
+        line=dict(color='green', width=2),
+        marker=dict(size=8)
+    ))
+    
+    # Configurar layout
+    fig_faixas.update_layout(
+        title='Distribuição de Clientes por Faixa de Valor',
+        xaxis_title="",
+        yaxis=dict(
+            title="Número de Clientes",
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128, 128, 128, 0.2)',
+        ),
+        yaxis2=dict(
+            title="Valor Total",
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            tickformat=',.0f'
+        ),
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white"),
+        showlegend=True,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        ),
+        xaxis=dict(tickangle=45)
+    )
+    
+    st.plotly_chart(fig_faixas, use_container_width=True)
+
+with col2:
+    # Adicionar explicação do gráfico de Pareto
+    st.info("""
+        **Como interpretar o Gráfico de Pareto (80/20)?**
+        
+        Este gráfico mostra como o faturamento está distribuído entre os clientes:
+        
+        📊 **Linha Azul**: 
+        - Mostra o percentual acumulado do faturamento
+        - Clientes ordenados do maior para o menor
+        - Quanto mais curvada, maior a concentração em poucos clientes
+        
+        📏 **Linha Vermelha**: 
+        - Referência ideal onde 20% dos clientes representam 80% do faturamento
+        - Serve como comparação para análise de concentração
+        
+        💡 **Como usar**: 
+        - Encontre no eixo X a % de clientes que você quer analisar
+        - O valor no eixo Y mostra quanto esses clientes representam do faturamento total
+    """)
+    
+    # Análise de Pareto
+    df_pareto = pd.DataFrame({
+        'cliente': df_faturamento_cliente.index,
+        'valor': df_faturamento_cliente.values
+    })
+    
+    # Calcular percentuais acumulados
+    df_pareto['valor_percentual'] = df_pareto['valor'] / df_pareto['valor'].sum() * 100
+    df_pareto['valor_acumulado'] = df_pareto['valor_percentual'].cumsum()
+    df_pareto['cliente_percentual'] = range(1, len(df_pareto) + 1)
+    df_pareto['cliente_percentual'] = df_pareto['cliente_percentual'] / len(df_pareto) * 100
+    
+    # Criar gráfico de Pareto
+    fig_pareto = go.Figure()
+    
+    # Adicionar linha de Pareto
+    fig_pareto.add_trace(go.Scatter(
+        x=df_pareto['cliente_percentual'],
+        y=df_pareto['valor_acumulado'],
+        mode='lines',
+        name='% Acumulado do Faturamento',
+        line=dict(color='#2E64FE', width=3)
+    ))
+    
+    # Adicionar linha de referência 80/20
+    fig_pareto.add_trace(go.Scatter(
+        x=[0, 20, 20],
+        y=[0, 80, 100],
+        mode='lines',
+        name='Referência 80/20',
+        line=dict(color='red', width=2, dash='dash')
+    ))
+    
+    # Configurar layout
+    fig_pareto.update_layout(
+        title='Análise de Pareto (80/20)',
+        xaxis_title="% Acumulado de Clientes",
+        yaxis_title="% Acumulado do Faturamento",
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white"),
+        showlegend=True,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        ),
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128, 128, 128, 0.2)',
+            range=[0, 100]
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128, 128, 128, 0.2)',
+            range=[0, 100]
+        )
+    )
+    
+    st.plotly_chart(fig_pareto, use_container_width=True)
+
+# Adicionar insights sobre segmentação
+percentual_80 = df_pareto[df_pareto['valor_acumulado'] <= 80]['cliente_percentual'].max()
+st.info("""
+    **Análise de Concentração de Clientes**
+    - {:.1f}% dos clientes representam 80% do faturamento
+    - A faixa de maior valor concentra {:.1f}% do faturamento total
+    - {:.1f}% dos clientes estão na faixa até R$ 10 mil
+""".format(
+    percentual_80,
+    df_stats['valor_total'].max() / df_stats['valor_total'].sum() * 100,
+    df_stats[df_stats['faixa'] == 'Até R$ 10 mil']['num_clientes'].iloc[0] / df_stats['num_clientes'].sum() * 100
+))
