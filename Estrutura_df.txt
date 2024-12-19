@@ -1,0 +1,27 @@
+Index(['sequencial', 'tipo', 'filial', 'codtra', 'os', 'itemOs', 'codcli',
+       'cnpj', 'razao', 'fantasia', 'cfop', 'data', 'emissao', 'nota', 'serie',
+       'chaveNfe', 'item', 'codProduto', 'produto', 'unidSaida', 'ncm',
+       'codGrupo', 'grupo', 'codSubGrupo', 'subGrupo', 'codVendedor',
+       'vendedor', 'vendedorRed', 'cidade', 'uf', 'tipoOs', 'descricaoTipoOs',
+       'codRegiao', 'regiao', 'codPais', 'pais', 'valorfaturado', 'quant',
+       'valoruni', 'valoripi', 'valoricms', 'valoriss', 'valorSubs',
+       'valorFrete', 'valorNota', 'valorContabil', 'retVlrPis', 'retVlrCofins',
+       'retVlrCsll', 'valorPis', 'valorCofins', 'aliqIpi', 'aliqIcms',
+       'porcReducaoIcms', 'cstIcms', 'baseIcms', 'valorCusto', 'valorDesconto',
+       'desctra', 'servico', 'libFatura'],
+      dtype='object')
+
+1 - Distribuição Geográfica:
+- Mapa de calor ou gráfico de barras por estado
+- Concentração de clientes por região
+
+2 - Análise de Produtos:
+- Top categorias mais compradas pelos clientes
+- Distribuição de vendas por grupo/subgrupo de produtos
+
+3 - Análise Temporal:
+- Evolução mensal do número de clientes ativos
+- Sazonalidade das compras
+4 - Segmentação por Valor:
+- Distribuição dos clientes por faixas de valor
+- Pareto (80/20) dos clientes
