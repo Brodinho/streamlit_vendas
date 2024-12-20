@@ -49,41 +49,34 @@ def get_trends_data(keyword, timeframe, geo):
             # Preparar o termo de pesquisa
             termo_pesquisa = preparar_termo_pesquisa(keyword)
             
+            # Primeiro tenta com o período original
             try:
-                # Build payload
                 pytrends.build_payload([termo_pesquisa], timeframe=timeframe, geo=geo)
-                
-                # Obter dados temporais
                 interest_over_time = pytrends.interest_over_time()
-                
-                # Se encontrou dados temporais, tenta obter os outros dados
-                if interest_over_time is not None and not interest_over_time.empty:
-                    related_queries = pytrends.related_queries()
-                    interest_by_region = pytrends.interest_by_region(
-                        resolution='COUNTRY' if geo == '' else 'REGION'
-                    )
-                    return interest_over_time, related_queries, interest_by_region
                 
                 # Se não encontrou dados, tenta com período maior
-                pytrends.build_payload([termo_pesquisa], timeframe='today 5-y', geo=geo)
-                interest_over_time = pytrends.interest_over_time()
-                if interest_over_time is not None and not interest_over_time.empty:
-                    related_queries = pytrends.related_queries()
-                    interest_by_region = pytrends.interest_by_region(
-                        resolution='COUNTRY' if geo == '' else 'REGION'
-                    )
-                    return interest_over_time, related_queries, interest_by_region
+                if interest_over_time is None or interest_over_time.empty:
+                    pytrends.build_payload([termo_pesquisa], timeframe='today 5-y', geo=geo)
+                    interest_over_time = pytrends.interest_over_time()
                 
                 # Se ainda não encontrou dados
-                st.warning(f"""
-                Não foram encontradas pesquisas para '{keyword}'.
+                if interest_over_time is None or interest_over_time.empty:
+                    st.warning(f"""
+                    Não foram encontradas pesquisas para '{keyword}'.
+                    
+                    Isso pode significar que:
+                    1. Este termo tem pouquíssimo volume de buscas no Google
+                    2. É uma marca/termo muito específico
+                    3. As pessoas usam outras variações para pesquisar
+                    
+                    Sugestões:
+                    ✓ Tente variações do nome (ex: nome completo, abreviações)
+                    ✓ Pesquise termos relacionados ao seu produto/serviço
+                    ✓ Para marcas, considere incluir o tipo de produto/serviço
+                    """)
+                    return None, None, None
                 
-                Isso pode significar que:
-                1. Este termo tem pouquíssimo volume de buscas no Google
-                2. É uma marca/termo muito específico
-                3. As pessoas usam outras variações para pesquisar
-                """)
-                return None, None, None
+                return interest_over_time, None, None
                 
             except Exception as e:
                 if attempt < max_retries - 1:
@@ -170,61 +163,24 @@ else:
         
         # Aba de evolução temporal
         with tab_tempo:
-            # Dicionário para tradução dos meses
-            meses_pt = {
-                'January': 'Janeiro',
-                'February': 'Fevereiro',
-                'March': 'Março',
-                'April': 'Abril',
-                'May': 'Maio',
-                'June': 'Junho',
-                'July': 'Julho',
-                'August': 'Agosto',
-                'September': 'Setembro',
-                'October': 'Outubro',
-                'November': 'Novembro',
-                'December': 'Dezembro'
-            }
-
-            # Função para formatar as datas em português
-            def formatar_data_pt(data):
-                data_str = data.strftime('%d de %B de %Y')
-                for mes_en, mes_pt in meses_pt.items():
-                    data_str = data_str.replace(mes_en, mes_pt)
-                return data_str
-
             # Gráfico de linha temporal
             fig_tempo = go.Figure()
-
+            
             # Pegar o nome correto da coluna (primeira coluna após o índice)
             coluna_dados = interest_over_time.columns[0]
-
-            # Selecionar datas para o eixo X
-            datas_index = interest_over_time.index
-            intervalo = len(datas_index) // 6
-            datas_selecionadas = datas_index[::intervalo]
-            datas_formatadas = [formatar_data_pt(data) for data in datas_selecionadas]
-
-            # Preparar dados do hover
-            hover_texts = [
-                f"Data: {formatar_data_pt(data)}<br>Volume: {valor}" 
-                for data, valor in zip(interest_over_time.index, interest_over_time[coluna_dados])
-            ]
-
+            
             fig_tempo.add_trace(go.Scatter(
                 x=interest_over_time.index,
                 y=interest_over_time[coluna_dados],
                 mode='lines+markers',
                 name='Volume de Pesquisas',
                 line=dict(color='#2E64FE', width=2),
-                marker=dict(size=6),
-                hovertemplate="%{text}<extra></extra>",  # Formato personalizado do hover
-                text=hover_texts  # Textos formatados para o hover
+                marker=dict(size=6)
             ))
-
+            
             fig_tempo.update_layout(
                 title=f'Volume de Pesquisas para "{empresa}"',
-                xaxis_title=None,  # Remove o título do eixo X
+                xaxis_title="Data",
                 yaxis_title="Volume Relativo de Pesquisas",
                 height=400,
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -234,10 +190,6 @@ else:
                     showgrid=True,
                     gridwidth=1,
                     gridcolor='rgba(128, 128, 128, 0.2)',
-                    ticktext=datas_formatadas,
-                    tickvals=datas_selecionadas,
-                    tickangle=45,
-                    nticks=6
                 ),
                 yaxis=dict(
                     showgrid=True,
@@ -304,40 +256,42 @@ else:
         
         # Aba de distribuição regional
         with tab_regiao:
-            if interest_by_region is None or interest_by_region.empty:
-                st.warning("Não foram encontrados dados regionais suficientes para gerar o mapa.")
+            if interest_by_region is None:
+                st.warning("Não foram encontrados dados regionais para este termo.")
             else:
-                fig_regiao = go.Figure(data=go.Choropleth(
-                    locations=interest_by_region.index,
-                    z=interest_by_region[interest_by_region.columns[0]],
-                    locationmode='country names' if geo == '' else 'ISO-3',
-                    colorscale='Blues',
-                    colorbar_title="Volume de Pesquisas"
-                ))
-                
-                fig_regiao.update_layout(
-                    title=f'Distribuição Regional das Pesquisas',
-                    height=600,
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="white")
-                )
-                
-                st.plotly_chart(fig_regiao, use_container_width=True)
+                if interest_by_region.empty:
+                    st.warning("Não há dados regionais suficientes para gerar o mapa.")
+                else:
+                    fig_regiao = go.Figure(data=go.Choropleth(
+                        locations=interest_by_region.index,
+                        z=interest_by_region[interest_by_region.columns[0]],
+                        locationmode='country names' if geo == '' else 'ISO-3',
+                        colorscale='Blues',
+                        colorbar_title="Volume de Pesquisas"
+                    ))
+                    
+                    fig_regiao.update_layout(
+                        title=f'Distribuição Regional das Pesquisas',
+                        height=600,
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="white")
+                    )
+                    
+                    st.plotly_chart(fig_regiao, use_container_width=True)
+    
+    # Adicionar explicação dos dados
+    st.info("""
+        **Sobre os Dados do Google Trends**
         
-        # Adicionar explicação dos dados
-        st.info("""
-            **Sobre os Dados do Google Trends**
-            
-            📊 **Volume Relativo**: 
-            - Os números representam o interesse de pesquisa relativo ao ponto mais alto do gráfico
-            - 100 é o pico de popularidade do termo
-            - 50 significa que o termo teve metade da popularidade
-            - 0 significa que não houve dados suficientes
-            
-            ⚠️ **Importante**:
-            - Os dados são normalizados e apresentados em uma escala de 0 a 100
-            - As comparações são relativas ao período selecionado
-            - Os dados podem ter uma defasagem de algumas horas
-        """)
-  
+        📊 **Volume Relativo**: 
+        - Os números representam o interesse de pesquisa relativo ao ponto mais alto do gráfico
+        - 100 é o pico de popularidade do termo
+        - 50 significa que o termo teve metade da popularidade
+        - 0 significa que não houve dados suficientes
+        
+        ⚠️ **Importante**:
+        - Os dados são normalizados e apresentados em uma escala de 0 a 100
+        - As comparações são relativas ao período selecionado
+        - Os dados podem ter uma defasagem de algumas horas
+    """)
