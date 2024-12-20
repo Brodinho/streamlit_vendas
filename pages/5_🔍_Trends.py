@@ -163,24 +163,61 @@ else:
         
         # Aba de evolução temporal
         with tab_tempo:
+            # Dicionário para tradução dos meses
+            meses_pt = {
+                'January': 'Janeiro',
+                'February': 'Fevereiro',
+                'March': 'Março',
+                'April': 'Abril',
+                'May': 'Maio',
+                'June': 'Junho',
+                'July': 'Julho',
+                'August': 'Agosto',
+                'September': 'Setembro',
+                'October': 'Outubro',
+                'November': 'Novembro',
+                'December': 'Dezembro'
+            }
+
+            # Função para formatar as datas em português
+            def formatar_data_pt(data):
+                data_str = data.strftime('%d de %B de %Y')
+                for mes_en, mes_pt in meses_pt.items():
+                    data_str = data_str.replace(mes_en, mes_pt)
+                return data_str
+
             # Gráfico de linha temporal
             fig_tempo = go.Figure()
             
             # Pegar o nome correto da coluna (primeira coluna após o índice)
             coluna_dados = interest_over_time.columns[0]
             
+            # Selecionar datas para o eixo X
+            datas_index = interest_over_time.index
+            intervalo = len(datas_index) // 6
+            datas_selecionadas = datas_index[::intervalo]
+            datas_formatadas = [formatar_data_pt(data) for data in datas_selecionadas]
+
+            # Preparar dados do hover
+            hover_texts = [
+                f"Data: {formatar_data_pt(data)}<br>Volume: {valor}" 
+                for data, valor in zip(interest_over_time.index, interest_over_time[coluna_dados])
+            ]
+
             fig_tempo.add_trace(go.Scatter(
                 x=interest_over_time.index,
                 y=interest_over_time[coluna_dados],
                 mode='lines+markers',
                 name='Volume de Pesquisas',
                 line=dict(color='#2E64FE', width=2),
-                marker=dict(size=6)
+                marker=dict(size=6),
+                hovertemplate="%{text}<extra></extra>",  # Formato personalizado do hover
+                text=hover_texts  # Textos formatados para o hover
             ))
             
             fig_tempo.update_layout(
                 title=f'Volume de Pesquisas para "{empresa}"',
-                xaxis_title="Data",
+                xaxis_title=None,  # Remove o título do eixo X
                 yaxis_title="Volume Relativo de Pesquisas",
                 height=400,
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -190,6 +227,10 @@ else:
                     showgrid=True,
                     gridwidth=1,
                     gridcolor='rgba(128, 128, 128, 0.2)',
+                    ticktext=datas_formatadas,
+                    tickvals=datas_selecionadas,
+                    tickangle=45,
+                    nticks=6
                 ),
                 yaxis=dict(
                     showgrid=True,
