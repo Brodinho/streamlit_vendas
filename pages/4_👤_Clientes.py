@@ -17,6 +17,7 @@ import math
 from pathlib import Path
 import sys
 from sklearn.preprocessing import MinMaxScaler
+import numpy as np
 
 # Adiciona o diretório raiz ao path do Python
 root_path = Path(__file__).parent.parent
@@ -363,7 +364,7 @@ with tab2:
             <br><br>
             • Número de clientes por região<br>
             • Volume de vendas por localidade<br>
-            • Visualização em mapa para melhor contexto espacial
+            ��� Visualização em mapa para melhor contexto espacial
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -720,3 +721,159 @@ with tab3:
     
     # Exibir gráfico
     st.plotly_chart(fig_retencao, use_container_width=True)
+
+    # Separador
+    st.divider()
+
+    # Título da nova seção
+    st.markdown("""
+    <style>
+        .freq-box {
+            background-color: #2b2d3e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        .freq-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .freq-intro {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+    </style>
+    
+    <div class="freq-box">
+        <div class="freq-title">
+            📊 Análise de Frequência de Compras
+        </div>
+        <div class="freq-intro">
+            Análise detalhada do comportamento de compra dos clientes, incluindo:
+            <br>• Média de pedidos por cliente ao longo do tempo
+            <br>• Intervalo médio entre compras
+            <br>• Distribuição dos clientes por frequência
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Calcular métricas de frequência
+    def calcular_metricas_frequencia(df):
+        # Agrupar por cliente e calcular métricas
+        freq_compras = df.groupby('razao').agg({
+            'data': ['count', 'min', 'max']
+        }).reset_index()
+        
+        # Renomear colunas
+        freq_compras.columns = ['Cliente', 'Total_Pedidos', 'Primeira_Compra', 'Ultima_Compra']
+        
+        # Calcular período ativo (em dias)
+        freq_compras['Periodo_Ativo'] = (freq_compras['Ultima_Compra'] - freq_compras['Primeira_Compra']).dt.days
+        
+        # Calcular intervalo médio entre compras (em dias)
+        freq_compras['Intervalo_Medio'] = freq_compras['Periodo_Ativo'] / (freq_compras['Total_Pedidos'] - 1)
+        freq_compras['Intervalo_Medio'] = freq_compras['Intervalo_Medio'].replace([np.inf, -np.inf], 0)
+        
+        return freq_compras
+
+    # Calcular métricas
+    freq_compras = calcular_metricas_frequencia(df_filtrado)
+
+    # Métricas principais em cards
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        media_pedidos = freq_compras['Total_Pedidos'].mean()
+        st.metric("Média de Pedidos por Cliente", f"{media_pedidos:.1f}")
+
+    with col2:
+        intervalo_medio = freq_compras['Intervalo_Medio'].mean()
+        st.metric("Intervalo Médio entre Compras", f"{intervalo_medio:.0f} dias")
+
+    with col3:
+        clientes_frequentes = len(freq_compras[freq_compras['Total_Pedidos'] > media_pedidos])
+        st.metric("Clientes Acima da Média", f"{clientes_frequentes}")
+
+    # Gráfico de evolução da média de pedidos por mês
+    pedidos_mensais = df_filtrado.groupby(df_filtrado['data'].dt.to_period('M')).agg({
+        'razao': 'nunique',
+        'nota': 'count'
+    }).reset_index()
+    
+    pedidos_mensais['media_pedidos'] = pedidos_mensais['nota'] / pedidos_mensais['razao']
+    pedidos_mensais['data'] = pedidos_mensais['data'].astype(str)
+
+    # Gráfico de linha para média de pedidos
+    fig_media_pedidos = go.Figure()
+
+    fig_media_pedidos.add_trace(go.Scatter(
+        x=pedidos_mensais['data'],
+        y=pedidos_mensais['media_pedidos'],
+        name='Média de Pedidos',
+        line=dict(color='#4169E1', width=2),
+        customdata=pedidos_mensais['media_pedidos'],
+        hovertemplate='Média de Pedidos: %{customdata:.1f}<extra></extra>'
+    ))
+
+    fig_media_pedidos.update_layout(
+        title='Evolução da Média de Pedidos por Cliente',
+        xaxis_title='Período',
+        yaxis_title='Média de Pedidos',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    # Formatar datas no eixo X
+    fig_media_pedidos.update_xaxes(
+        ticktext=[formatar_data_abrev_curta(data) for data in pedidos_mensais['data']],
+        tickvals=pedidos_mensais['data']
+    )
+
+    st.plotly_chart(fig_media_pedidos, use_container_width=True)
+
+    # Distribuição de frequência de compras
+    fig_dist = go.Figure()
+
+    # Criar bins para frequência de compras
+    bins = [0, 1, 2, 5, 10, float('inf')]
+    labels = ['1 pedido', '2 pedidos', '3-5 pedidos', '6-10 pedidos', 'Mais de 10 pedidos']
+    
+    freq_compras['faixa_frequencia'] = pd.cut(freq_compras['Total_Pedidos'], bins=bins, labels=labels, right=False)
+    dist_freq = freq_compras['faixa_frequencia'].value_counts().sort_index()
+
+    fig_dist.add_trace(go.Bar(
+        x=dist_freq.index,
+        y=dist_freq.values,
+        text=dist_freq.values,
+        textposition='auto',
+        marker_color='#4169E1',
+        hovertemplate='Quantidade de Clientes: %{y}<extra></extra>'
+    ))
+
+    fig_dist.update_layout(
+        title='Distribuição de Clientes por Frequência de Compras',
+        xaxis_title='Frequência de Compras',
+        yaxis_title='Número de Clientes',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=False,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    st.plotly_chart(fig_dist, use_container_width=True)
