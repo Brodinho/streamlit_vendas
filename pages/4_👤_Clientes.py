@@ -15,6 +15,62 @@ sys.path.append(str(root_path))
 from dataset import df
 from utils import formatar_moeda
 
+# Dicionário de estados
+siglas_estados = {
+    "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas", "BA": "Bahia", "CE": "Ceará",
+    "DF": "Distrito Federal", "ES": "Espírito Santo", "GO": "Goiás", "MA": "Maranhão", "MT": "Mato Grosso",
+    "MS": "Mato Grosso do Sul", "MG": "Minas Gerais", "PA": "Pará", "PB": "Paraíba", "PR": "Paraná",
+    "PE": "Pernambuco", "PI": "Piauí", "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte",
+    "RS": "Rio Grande do Sul", "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina",
+    "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins",
+    "EUA": "Estados Unidos", "COL": "Colômbia", "PER": "Peru", "ARG": "Argentina",
+    "ELS": "El Salvador", "MEX": "México", "CHI": "Chile", "GUA": "Guatemala",
+    "HON": "Honduras", "NIC": "Nicarágua", "PAN": "Panamá", "BOL": "Bolívia",
+    "URU": "Uruguai", "PAR": "Paraguai", "CRI": "Costa Rica"
+}
+
+# Mapeamento de países para suas siglas
+mapeamento_paises = {
+    'COLOMBIA': 'COL',
+    'PERU': 'PER',
+    'ARGENTINA': 'ARG',
+    'ESTADOS UNIDOS': 'EUA',
+    'EL SALVADOR': 'ELS',
+    'MEXICO': 'MEX',
+    'CHILE': 'CHI',
+    'GUATEMALA': 'GUA',
+    'HONDURAS': 'HON',
+    'NICARAGUA': 'NIC',
+    'PANAMA': 'PAN',
+    'BOLIVIA': 'BOL',
+    'URUGUAI': 'URU',
+    'PARAGUAI': 'PAR',
+    'COSTA RICA': 'CRI'
+}
+
+# Dicionário com as coordenadas dos países
+coordenadas_paises = {
+    'EUA': {'lat': 37.0902, 'lon': -95.7129},
+    'COL': {'lat': 4.5709, 'lon': -74.2973},
+    'PER': {'lat': -9.1900, 'lon': -75.0152},
+    'ARG': {'lat': -38.4161, 'lon': -63.6167},
+    'ELS': {'lat': 13.7942, 'lon': -88.8965},
+    'MEX': {'lat': 23.6345, 'lon': -102.5528},
+    'CHI': {'lat': -35.6751, 'lon': -71.5430},
+    'GUA': {'lat': 15.7835, 'lon': -90.2308},
+    'HON': {'lat': 15.2000, 'lon': -86.2419},
+    'NIC': {'lat': 12.8654, 'lon': -85.2072},
+    'PAN': {'lat': 8.5380, 'lon': -80.7821},
+    'BOL': {'lat': -16.2902, 'lon': -63.5887},
+    'URU': {'lat': -32.5228, 'lon': -55.7658},
+    'PAR': {'lat': -23.4425, 'lon': -58.4438},
+    'CRI': {'lat': 9.7489, 'lon': -83.7534}
+}
+
+# Função para extrair a sigla do país
+def extrair_sigla_pais(pais):
+    return mapeamento_paises.get(str(pais).upper(), 'EX')
+
 # Configurar locale para português brasileiro
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 
@@ -380,22 +436,49 @@ with tab2:
         st.metric("Estado com Mais Clientes", estado_mais_clientes)
 
     # Distribuição de clientes por estado/país
-    df_dist_clientes = df_filtrado.groupby('uf')['razao'].nunique().reset_index()
+    # Preparar dados para estados brasileiros
+    df_brasil = df_filtrado[df_filtrado['uf'] != 'EX'].copy()
+    df_brasil_clientes = df_brasil.groupby('uf')['razao'].nunique().reset_index()
+    df_brasil_clientes['Nome_Local'] = df_brasil_clientes['uf'].map(siglas_estados)
+    
+    # Preparar dados para países
+    df_exterior = df_filtrado[df_filtrado['uf'] == 'EX'].copy()
+    df_exterior_clientes = df_exterior.groupby('pais')['razao'].nunique().reset_index()
+    df_exterior_clientes['uf'] = df_exterior_clientes['pais'].apply(extrair_sigla_pais)
+    df_exterior_clientes['Nome_Local'] = df_exterior_clientes['uf'].map(siglas_estados)
+    
+    # Combinar dados de estados e países
+    df_dist_clientes = pd.concat([
+        df_brasil_clientes[['uf', 'Nome_Local', 'razao']],
+        df_exterior_clientes[['uf', 'Nome_Local', 'razao']]
+    ], ignore_index=True)
+    
+    # Ordenar por número de clientes
     df_dist_clientes = df_dist_clientes.sort_values('razao', ascending=True)
-
-    fig_dist = go.Figure(data=[
-        go.Bar(
-            x=df_dist_clientes['razao'],
-            y=df_dist_clientes['uf'],
-            orientation='h',
-            marker_color='#4169E1'
+    
+    # Criar gráfico
+    fig_dist = go.Figure()
+    fig_dist.add_trace(go.Bar(
+        y=df_dist_clientes['Nome_Local'],
+        x=df_dist_clientes['razao'],
+        orientation='h',
+        marker_color=[
+            'red' if uf in coordenadas_paises.keys() else '#4169E1' 
+            for uf in df_dist_clientes['uf']
+        ],
+        text=df_dist_clientes['razao'],
+        textposition='outside',
+        hovertemplate=(
+            "<b>%{y}</b><br>" +
+            "Qtd. Clientes: %{x:,.0f}" +
+            "<extra></extra>"
         )
-    ])
+    ))
 
     fig_dist.update_layout(
         title='Distribuição de Clientes por Estado/País',
         xaxis_title='Número de Clientes',
-        yaxis_title='Estado/País',
+        yaxis_title='',
         height=400,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
