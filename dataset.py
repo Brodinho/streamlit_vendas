@@ -48,3 +48,5 @@ for col in date_columns:
 
 # Tratar valores nulos na coluna vendedor
 df['vendedor'] = df['vendedor'].fillna('Não Informado')
+
+print(df)

@@ -156,12 +156,115 @@ siglas_estados = {
     "URU": "Uruguai", "PAR": "Paraguai", "CRI": "Costa Rica"
 }
 
+# Dicionário com as coordenadas dos estados (mover para fora da função)
+coordenadas_estados = {
+    'AC': {'latitude': -8.77, 'longitude': -70.55},
+    'AL': {'latitude': -9.71, 'longitude': -35.73},
+    'AM': {'latitude': -3.07, 'longitude': -61.66},
+    'AP': {'latitude': 1.41, 'longitude': -51.77},
+    'BA': {'latitude': -12.96, 'longitude': -38.51},
+    'CE': {'latitude': -3.71, 'longitude': -38.54},
+    'DF': {'latitude': -15.78, 'longitude': -47.92},
+    'ES': {'latitude': -20.31, 'longitude': -40.31},
+    'GO': {'latitude': -16.64, 'longitude': -49.31},
+    'MA': {'latitude': -2.55, 'longitude': -44.30},
+    'MG': {'latitude': -19.92, 'longitude': -43.93},
+    'MS': {'latitude': -20.44, 'longitude': -54.64},
+    'MT': {'latitude': -15.60, 'longitude': -56.10},
+    'PA': {'latitude': -1.45, 'longitude': -48.50},
+    'PB': {'latitude': -7.12, 'longitude': -34.86},
+    'PE': {'latitude': -8.05, 'longitude': -34.92},
+    'PI': {'latitude': -5.09, 'longitude': -42.80},
+    'PR': {'latitude': -25.42, 'longitude': -49.27},
+    'RJ': {'latitude': -22.91, 'longitude': -43.20},
+    'RN': {'latitude': -5.79, 'longitude': -35.20},
+    'RO': {'latitude': -8.76, 'longitude': -63.90},
+    'RR': {'latitude': 2.82, 'longitude': -60.67},
+    'RS': {'latitude': -30.03, 'longitude': -51.23},
+    'SC': {'latitude': -27.59, 'longitude': -48.54},
+    'SE': {'latitude': -10.90, 'longitude': -37.07},
+    'SP': {'latitude': -23.55, 'longitude': -46.63},
+    'TO': {'latitude': -10.17, 'longitude': -48.33}
+}
+
+# Mapeamento de países para suas siglas
+mapeamento_paises = {
+    'COLOMBIA': 'COL',
+    'PERU': 'PER',
+    'ARGENTINA': 'ARG',
+    'ESTADOS UNIDOS': 'EUA',
+    'EL SALVADOR': 'ELS',
+    'MEXICO': 'MEX',
+    'CHILE': 'CHI',
+    'GUATEMALA': 'GUA',
+    'HONDURAS': 'HON',
+    'NICARAGUA': 'NIC',
+    'PANAMA': 'PAN',
+    'BOLIVIA': 'BOL',
+    'URUGUAI': 'URU',
+    'PARAGUAI': 'PAR',
+    'COSTA RICA': 'CRI'
+}
+
+# Dicionário com as coordenadas dos países
+coordenadas_paises = {
+    'EUA': {'lat': 37.0902, 'lon': -95.7129},    # Estados Unidos
+    'COL': {'lat': 4.5709, 'lon': -74.2973},     # Colômbia
+    'PER': {'lat': -9.1900, 'lon': -75.0152},    # Peru
+    'ARG': {'lat': -38.4161, 'lon': -63.6167},   # Argentina
+    'ELS': {'lat': 13.7942, 'lon': -88.8965},    # El Salvador
+    'MEX': {'lat': 23.6345, 'lon': -102.5528},   # México
+    'CHI': {'lat': -35.6751, 'lon': -71.5430},   # Chile
+    'GUA': {'lat': 15.7835, 'lon': -90.2308},    # Guatemala
+    'HON': {'lat': 15.2000, 'lon': -86.2419},    # Honduras
+    'NIC': {'lat': 12.8654, 'lon': -85.2072},    # Nicarágua
+    'PAN': {'lat': 8.5380, 'lon': -80.7821},     # Panamá
+    'BOL': {'lat': -16.2902, 'lon': -63.5887},   # Bolívia
+    'URU': {'lat': -32.5228, 'lon': -55.7658},   # Uruguai
+    'PAR': {'lat': -23.4425, 'lon': -58.4438},   # Paraguai
+    'CRI': {'lat': 9.7489, 'lon': -83.7534},     # Costa Rica
+}
+
+# Função para extrair a sigla do país
+def extrair_sigla_pais(pais):
+    return mapeamento_paises.get(str(pais).upper(), 'EX')
+
+def criar_df_fat_estado(df):
+    # Separar dados do Brasil e do exterior
+    df_brasil = df[df['uf'] != 'EX'].copy()
+    df_exterior = df[df['uf'] == 'EX'].copy()
+    
+    # Processar dados do Brasil
+    df_brasil_fat = df_brasil.groupby('uf')['valorfaturado'].sum().reset_index()
+    df_brasil_fat['latitude'] = df_brasil_fat['uf'].map(lambda x: coordenadas_estados.get(x, {}).get('latitude'))
+    df_brasil_fat['longitude'] = df_brasil_fat['uf'].map(lambda x: coordenadas_estados.get(x, {}).get('longitude'))
+    
+    # Processar dados do exterior
+    df_exterior_fat = df_exterior.groupby('pais')['valorfaturado'].sum().reset_index()
+    df_exterior_fat['sigla_pais'] = df_exterior_fat['pais'].apply(extrair_sigla_pais)
+    df_exterior_fat['latitude'] = df_exterior_fat['sigla_pais'].map(lambda x: coordenadas_paises.get(x, {}).get('lat'))
+    df_exterior_fat['longitude'] = df_exterior_fat['sigla_pais'].map(lambda x: coordenadas_paises.get(x, {}).get('lon'))
+    df_exterior_fat['uf'] = df_exterior_fat['sigla_pais']  # Usar sigla do país como UF
+    
+    # Combinar dados do Brasil e exterior
+    df_fat_estado = pd.concat([
+        df_brasil_fat[['uf', 'valorfaturado', 'latitude', 'longitude']],
+        df_exterior_fat[['uf', 'valorfaturado', 'latitude', 'longitude']]
+    ], ignore_index=True)
+    
+    return df_fat_estado
+
 def criar_mapa_estado(df_filtrado):
-    # Criar DataFrame com faturamento por estado
+    # Criar DataFrame com faturamento por estado/país
     df_fat_estado = criar_df_fat_estado(df_filtrado)
     
-    # Adicionar nome do estado e formatar faturamento
-    df_fat_estado['Nome_Estado'] = df_fat_estado['uf'].map(siglas_estados)
+    # Identificar se é estado brasileiro ou país
+    df_fat_estado['is_pais'] = df_fat_estado['uf'].isin(coordenadas_paises.keys())
+    df_fat_estado['Nome_Local'] = df_fat_estado.apply(
+        lambda x: siglas_estados.get(x['uf']) if not x['is_pais'] 
+        else siglas_estados.get(x['uf'], x['uf']), axis=1
+    )
+    
     df_fat_estado['Faturamento Total'] = df_fat_estado['valorfaturado'].apply(formatar_moeda)
     
     # Normalizar tamanho das bolhas
@@ -174,22 +277,37 @@ def criar_mapa_estado(df_filtrado):
         lat='latitude',
         lon='longitude',
         size='bubble_size',
-        color_discrete_sequence=['blue'],
-        hover_name='Nome_Estado',
+        color='is_pais',  # Diferenciar países de estados por cor
+        color_discrete_sequence=['blue', 'red'],  # Azul para estados, vermelho para países
+        hover_name='Nome_Local',
         hover_data={
             'bubble_size': False,
             'latitude': False,
             'longitude': False,
+            'is_pais': False,
             'Faturamento Total': True
         },
         mapbox_style="open-street-map",
-        zoom=3
+        zoom=2  # Zoom mais aberto para mostrar todos os países
     )
     
     fig.update_layout(
         coloraxis_colorbar_tickformat="R$,.2f",
-        height=400
+        height=400,
+        showlegend=True,
+        legend=dict(
+            title="Localização",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            itemsizing="constant"
+        )
     )
+    
+    # Atualizar legendas
+    fig.data[0].name = "Estados"
+    fig.data[1].name = "Países"
     
     return fig
 
