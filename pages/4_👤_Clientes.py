@@ -1,4 +1,13 @@
 import streamlit as st
+
+# Primeiro comando Streamlit deve ser set_page_config
+st.set_page_config(
+    page_title="Clientes - Dashboard de Vendas",
+    page_icon="👤",
+    layout="wide",
+)
+
+# Agora as outras importações
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -7,79 +16,19 @@ import locale
 import math
 from pathlib import Path
 import sys
+from sklearn.preprocessing import MinMaxScaler
 
 # Adiciona o diretório raiz ao path do Python
 root_path = Path(__file__).parent.parent
 sys.path.append(str(root_path))
 
+# Importações locais
 from dataset import df
 from utils import formatar_moeda
-
-# Dicionário de estados
-siglas_estados = {
-    "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas", "BA": "Bahia", "CE": "Ceará",
-    "DF": "Distrito Federal", "ES": "Espírito Santo", "GO": "Goiás", "MA": "Maranhão", "MT": "Mato Grosso",
-    "MS": "Mato Grosso do Sul", "MG": "Minas Gerais", "PA": "Pará", "PB": "Paraíba", "PR": "Paraná",
-    "PE": "Pernambuco", "PI": "Piauí", "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte",
-    "RS": "Rio Grande do Sul", "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina",
-    "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins",
-    "EUA": "Estados Unidos", "COL": "Colômbia", "PER": "Peru", "ARG": "Argentina",
-    "ELS": "El Salvador", "MEX": "México", "CHI": "Chile", "GUA": "Guatemala",
-    "HON": "Honduras", "NIC": "Nicarágua", "PAN": "Panamá", "BOL": "Bolívia",
-    "URU": "Uruguai", "PAR": "Paraguai", "CRI": "Costa Rica"
-}
-
-# Mapeamento de países para suas siglas
-mapeamento_paises = {
-    'COLOMBIA': 'COL',
-    'PERU': 'PER',
-    'ARGENTINA': 'ARG',
-    'ESTADOS UNIDOS': 'EUA',
-    'EL SALVADOR': 'ELS',
-    'MEXICO': 'MEX',
-    'CHILE': 'CHI',
-    'GUATEMALA': 'GUA',
-    'HONDURAS': 'HON',
-    'NICARAGUA': 'NIC',
-    'PANAMA': 'PAN',
-    'BOLIVIA': 'BOL',
-    'URUGUAI': 'URU',
-    'PARAGUAI': 'PAR',
-    'COSTA RICA': 'CRI'
-}
-
-# Dicionário com as coordenadas dos países
-coordenadas_paises = {
-    'EUA': {'lat': 37.0902, 'lon': -95.7129},
-    'COL': {'lat': 4.5709, 'lon': -74.2973},
-    'PER': {'lat': -9.1900, 'lon': -75.0152},
-    'ARG': {'lat': -38.4161, 'lon': -63.6167},
-    'ELS': {'lat': 13.7942, 'lon': -88.8965},
-    'MEX': {'lat': 23.6345, 'lon': -102.5528},
-    'CHI': {'lat': -35.6751, 'lon': -71.5430},
-    'GUA': {'lat': 15.7835, 'lon': -90.2308},
-    'HON': {'lat': 15.2000, 'lon': -86.2419},
-    'NIC': {'lat': 12.8654, 'lon': -85.2072},
-    'PAN': {'lat': 8.5380, 'lon': -80.7821},
-    'BOL': {'lat': -16.2902, 'lon': -63.5887},
-    'URU': {'lat': -32.5228, 'lon': -55.7658},
-    'PAR': {'lat': -23.4425, 'lon': -58.4438},
-    'CRI': {'lat': 9.7489, 'lon': -83.7534}
-}
-
-# Função para extrair a sigla do país
-def extrair_sigla_pais(pais):
-    return mapeamento_paises.get(str(pais).upper(), 'EX')
+from grafics import coordenadas_estados, coordenadas_paises, siglas_estados, extrair_sigla_pais
 
 # Configurar locale para português brasileiro
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
-
-# Configuração da página
-st.set_page_config(
-    page_title="Clientes - Dashboard de Vendas",
-    page_icon="👤",
-    layout="wide",
-)
 
 # Título da página
 st.title("👤 Análise de Clientes")
@@ -487,34 +436,94 @@ with tab2:
 
     st.plotly_chart(fig_dist, use_container_width=True)
 
-    # Mapa Choropleth
-    df_mapa = df_filtrado.groupby('uf').agg({
-        'razao': 'nunique',
-        'valorNota': 'sum'
-    }).reset_index()
+    # Mapa de distribuição geográfica
+    def criar_mapa_clientes(df_filtrado):
+        # Preparar dados para estados brasileiros
+        df_brasil = df_filtrado[df_filtrado['uf'] != 'EX'].copy()
+        df_brasil_clientes = df_brasil.groupby('uf')['razao'].nunique().reset_index()
+        df_brasil_clientes['latitude'] = df_brasil_clientes['uf'].map(lambda x: coordenadas_estados[x]['latitude'])
+        df_brasil_clientes['longitude'] = df_brasil_clientes['uf'].map(lambda x: coordenadas_estados[x]['longitude'])
+        
+        # Preparar dados para países
+        df_exterior = df_filtrado[df_filtrado['uf'] == 'EX'].copy()
+        df_exterior_clientes = df_exterior.groupby('pais')['razao'].nunique().reset_index()
+        df_exterior_clientes['sigla_pais'] = df_exterior_clientes['pais'].apply(extrair_sigla_pais)
+        
+        # Filtrar apenas países que têm coordenadas definidas
+        df_exterior_clientes = df_exterior_clientes[df_exterior_clientes['sigla_pais'].isin(coordenadas_paises.keys())]
+        
+        # Agora mapear as coordenadas apenas para países válidos
+        df_exterior_clientes['latitude'] = df_exterior_clientes['sigla_pais'].map(lambda x: coordenadas_paises[x]['lat'])
+        df_exterior_clientes['longitude'] = df_exterior_clientes['sigla_pais'].map(lambda x: coordenadas_paises[x]['lon'])
+        df_exterior_clientes['uf'] = df_exterior_clientes['sigla_pais']
+        
+        # Combinar dados de estados e países
+        df_mapa = pd.concat([
+            df_brasil_clientes[['uf', 'razao', 'latitude', 'longitude']],
+            df_exterior_clientes[['uf', 'razao', 'latitude', 'longitude']]
+        ], ignore_index=True)
+        
+        # Identificar se é estado brasileiro ou país
+        df_mapa['is_pais'] = df_mapa['uf'].isin(coordenadas_paises.keys())
+        df_mapa['Nome_Local'] = df_mapa.apply(
+            lambda x: siglas_estados.get(x['uf']) if not x['is_pais'] 
+            else siglas_estados.get(x['uf'], x['uf']), axis=1
+        )
+        
+        # Normalizar tamanho das bolhas
+        scaler = MinMaxScaler(feature_range=(5, 50))
+        df_mapa['bubble_size'] = scaler.fit_transform(df_mapa[['razao']])
+        
+        # Criar o mapa
+        fig_mapa = px.scatter_mapbox(
+            df_mapa,
+            lat='latitude',
+            lon='longitude',
+            size='bubble_size',
+            color='is_pais',
+            color_discrete_sequence=['blue', 'red'],
+            hover_name='Nome_Local',
+            hover_data={
+                'bubble_size': False,
+                'latitude': False,
+                'longitude': False,
+                'is_pais': False,
+                'razao': True
+            },
+            mapbox_style="open-street-map",
+            zoom=2
+        )
+        
+        fig_mapa.update_layout(
+            title='Distribuição Geográfica de Clientes',
+            height=400,
+            showlegend=True,
+            legend=dict(
+                title="Localização",
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01,
+                itemsizing="constant"
+            )
+        )
+        
+        # Atualizar legendas
+        fig_mapa.data[0].name = "Estados"
+        fig_mapa.data[1].name = "Países"
+        
+        # Atualizar hover template
+        for trace in fig_mapa.data:
+            trace.hovertemplate = (
+                "<b>%{hovertext}</b><br>" +
+                "Qtd. Clientes: %{customdata[0]:,.0f}<br>" +
+                "<extra></extra>"
+            )
+        
+        return fig_mapa
 
-    fig_mapa = go.Figure(data=go.Choropleth(
-        locations=df_mapa['uf'],
-        z=df_mapa['razao'],
-        locationmode='ISO-3',
-        colorscale='Blues',
-        colorbar_title="Número de Clientes"
-    ))
-
-    fig_mapa.update_layout(
-        title='Distribuição Geográfica de Clientes',
-        geo=dict(
-            scope='south america',
-            showframe=False,
-            showcoastlines=True,
-            projection_type='equirectangular'
-        ),
-        height=600,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white")
-    )
-
+    # Atualizar o mapa
+    fig_mapa = criar_mapa_clientes(df_filtrado)
     st.plotly_chart(fig_mapa, use_container_width=True)
 
 # Aba Análise Temporal

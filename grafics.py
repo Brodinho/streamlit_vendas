@@ -10,8 +10,123 @@ from utils import formatar_moeda, criar_df_fat_estado
 import math
 from sklearn.preprocessing import MinMaxScaler
 
-# Configurar locale para português brasileiro
-locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+# Mover as definições globais para aqui
+coordenadas_estados = {
+    'AC': {'latitude': -8.77, 'longitude': -70.55},
+    'AL': {'latitude': -9.71, 'longitude': -35.73},
+    'AM': {'latitude': -3.07, 'longitude': -61.66},
+    'AP': {'latitude': 1.41, 'longitude': -51.77},
+    'BA': {'latitude': -12.96, 'longitude': -38.51},
+    'CE': {'latitude': -3.71, 'longitude': -38.54},
+    'DF': {'latitude': -15.78, 'longitude': -47.92},
+    'ES': {'latitude': -20.31, 'longitude': -40.31},
+    'GO': {'latitude': -16.64, 'longitude': -49.31},
+    'MA': {'latitude': -2.55, 'longitude': -44.30},
+    'MG': {'latitude': -19.92, 'longitude': -43.93},
+    'MS': {'latitude': -20.44, 'longitude': -54.64},
+    'MT': {'latitude': -15.60, 'longitude': -56.10},
+    'PA': {'latitude': -1.45, 'longitude': -48.50},
+    'PB': {'latitude': -7.12, 'longitude': -34.86},
+    'PE': {'latitude': -8.05, 'longitude': -34.92},
+    'PI': {'latitude': -5.09, 'longitude': -42.80},
+    'PR': {'latitude': -25.42, 'longitude': -49.27},
+    'RJ': {'latitude': -22.91, 'longitude': -43.20},
+    'RN': {'latitude': -5.79, 'longitude': -35.20},
+    'RO': {'latitude': -8.76, 'longitude': -63.90},
+    'RR': {'latitude': 2.82, 'longitude': -60.67},
+    'RS': {'latitude': -30.03, 'longitude': -51.23},
+    'SC': {'latitude': -27.59, 'longitude': -48.54},
+    'SE': {'latitude': -10.90, 'longitude': -37.07},
+    'SP': {'latitude': -23.55, 'longitude': -46.63},
+    'TO': {'latitude': -10.17, 'longitude': -48.33}
+}
+
+coordenadas_paises = {
+    'EUA': {'lat': 37.0902, 'lon': -95.7129},
+    'COL': {'lat': 4.5709, 'lon': -74.2973},
+    'PER': {'lat': -9.1900, 'lon': -75.0152},
+    'ARG': {'lat': -38.4161, 'lon': -63.6167},
+    'ELS': {'lat': 13.7942, 'lon': -88.8965},
+    'MEX': {'lat': 23.6345, 'lon': -102.5528},
+    'CHI': {'lat': -35.6751, 'lon': -71.5430},
+    'GUA': {'lat': 15.7835, 'lon': -90.2308},
+    'HON': {'lat': 15.2000, 'lon': -86.2419},
+    'NIC': {'lat': 12.8654, 'lon': -85.2072},
+    'PAN': {'lat': 8.5380, 'lon': -80.7821},
+    'BOL': {'lat': -16.2902, 'lon': -63.5887},
+    'URU': {'lat': -32.5228, 'lon': -55.7658},
+    'PAR': {'lat': -23.4425, 'lon': -58.4438},
+    'CRI': {'lat': 9.7489, 'lon': -83.7534}
+}
+
+siglas_estados = {
+    "AC": "Acre",
+    "AL": "Alagoas",
+    "AP": "Amapá",
+    "AM": "Amazonas",
+    "BA": "Bahia",
+    "CE": "Ceará",
+    "DF": "Distrito Federal",
+    "ES": "Espírito Santo",
+    "GO": "Goiás",
+    "MA": "Maranhão",
+    "MT": "Mato Grosso",
+    "MS": "Mato Grosso do Sul",
+    "MG": "Minas Gerais",
+    "PA": "Pará",
+    "PB": "Paraíba",
+    "PR": "Paraná",
+    "PE": "Pernambuco",
+    "PI": "Piauí",
+    "RJ": "Rio de Janeiro",
+    "RN": "Rio Grande do Norte",
+    "RS": "Rio Grande do Sul",
+    "RO": "Rondônia",
+    "RR": "Roraima",
+    "SC": "Santa Catarina",
+    "SP": "São Paulo",
+    "SE": "Sergipe",
+    "TO": "Tocantins",
+    "EUA": "Estados Unidos",
+    "COL": "Colômbia",
+    "PER": "Peru",
+    "ARG": "Argentina",
+    "ELS": "El Salvador",
+    "MEX": "México",
+    "CHI": "Chile",
+    "GUA": "Guatemala",
+    "HON": "Honduras",
+    "NIC": "Nicarágua",
+    "PAN": "Panamá",
+    "BOL": "Bolívia",
+    "URU": "Uruguai",
+    "PAR": "Paraguai",
+    "CRI": "Costa Rica"
+}
+
+def extrair_sigla_pais(pais):
+    return mapeamento_paises.get(str(pais).upper(), 'EX')
+
+# Encapsular qualquer configuração do Streamlit em funções
+def setup_streamlit():
+    locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+    
+    st.markdown("""
+        <style>
+            .stDateInput {
+                font-family: 'Arial';
+            }
+            .stDateInput input {
+                text-align: center;
+            }
+            div[data-baseweb="calendar"] {
+                font-family: 'Arial';
+            }
+            div[data-baseweb="calendar"] button {
+                font-family: 'Arial';
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
 # Dicionário para tradução dos meses (mantendo o nome como meses_pt)
 meses_pt = {
@@ -32,24 +147,6 @@ meses_pt = {
 # Datas mínima e máxima para o filtro
 min_date = df['data'].min().date()
 max_date = df['data'].max().date()
-
-# Configuração do estilo do calendário
-st.markdown("""
-    <style>
-        .stDateInput {
-            font-family: 'Arial';
-        }
-        .stDateInput input {
-            text-align: center;
-        }
-        div[data-baseweb="calendar"] {
-            font-family: 'Arial';
-        }
-        div[data-baseweb="calendar"] button {
-            font-family: 'Arial';
-        }
-    </style>
-""", unsafe_allow_html=True)
 
 # Filtros na sidebar
 with st.sidebar:
@@ -142,51 +239,6 @@ fig.update_traces(
 # Exibir gráfico
 st.plotly_chart(fig, use_container_width=True)
 
-# Dicionário de estados
-siglas_estados = {
-    "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas", "BA": "Bahia", "CE": "Ceará",
-    "DF": "Distrito Federal", "ES": "Espírito Santo", "GO": "Goiás", "MA": "Maranhão", "MT": "Mato Grosso",
-    "MS": "Mato Grosso do Sul", "MG": "Minas Gerais", "PA": "Pará", "PB": "Paraíba", "PR": "Paraná",
-    "PE": "Pernambuco", "PI": "Piauí", "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte",
-    "RS": "Rio Grande do Sul", "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina",
-    "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins",
-    "EUA": "Estados Unidos", "COL": "Colômbia", "PER": "Peru", "ARG": "Argentina",
-    "ELS": "El Salvador", "MEX": "México", "CHI": "Chile", "GUA": "Guatemala",
-    "HON": "Honduras", "NIC": "Nicarágua", "PAN": "Panamá", "BOL": "Bolívia",
-    "URU": "Uruguai", "PAR": "Paraguai", "CRI": "Costa Rica"
-}
-
-# Dicionário com as coordenadas dos estados (mover para fora da função)
-coordenadas_estados = {
-    'AC': {'latitude': -8.77, 'longitude': -70.55},
-    'AL': {'latitude': -9.71, 'longitude': -35.73},
-    'AM': {'latitude': -3.07, 'longitude': -61.66},
-    'AP': {'latitude': 1.41, 'longitude': -51.77},
-    'BA': {'latitude': -12.96, 'longitude': -38.51},
-    'CE': {'latitude': -3.71, 'longitude': -38.54},
-    'DF': {'latitude': -15.78, 'longitude': -47.92},
-    'ES': {'latitude': -20.31, 'longitude': -40.31},
-    'GO': {'latitude': -16.64, 'longitude': -49.31},
-    'MA': {'latitude': -2.55, 'longitude': -44.30},
-    'MG': {'latitude': -19.92, 'longitude': -43.93},
-    'MS': {'latitude': -20.44, 'longitude': -54.64},
-    'MT': {'latitude': -15.60, 'longitude': -56.10},
-    'PA': {'latitude': -1.45, 'longitude': -48.50},
-    'PB': {'latitude': -7.12, 'longitude': -34.86},
-    'PE': {'latitude': -8.05, 'longitude': -34.92},
-    'PI': {'latitude': -5.09, 'longitude': -42.80},
-    'PR': {'latitude': -25.42, 'longitude': -49.27},
-    'RJ': {'latitude': -22.91, 'longitude': -43.20},
-    'RN': {'latitude': -5.79, 'longitude': -35.20},
-    'RO': {'latitude': -8.76, 'longitude': -63.90},
-    'RR': {'latitude': 2.82, 'longitude': -60.67},
-    'RS': {'latitude': -30.03, 'longitude': -51.23},
-    'SC': {'latitude': -27.59, 'longitude': -48.54},
-    'SE': {'latitude': -10.90, 'longitude': -37.07},
-    'SP': {'latitude': -23.55, 'longitude': -46.63},
-    'TO': {'latitude': -10.17, 'longitude': -48.33}
-}
-
 # Mapeamento de países para suas siglas
 mapeamento_paises = {
     'COLOMBIA': 'COL',
@@ -205,29 +257,6 @@ mapeamento_paises = {
     'PARAGUAI': 'PAR',
     'COSTA RICA': 'CRI'
 }
-
-# Dicionário com as coordenadas dos países
-coordenadas_paises = {
-    'EUA': {'lat': 37.0902, 'lon': -95.7129},    # Estados Unidos
-    'COL': {'lat': 4.5709, 'lon': -74.2973},     # Colômbia
-    'PER': {'lat': -9.1900, 'lon': -75.0152},    # Peru
-    'ARG': {'lat': -38.4161, 'lon': -63.6167},   # Argentina
-    'ELS': {'lat': 13.7942, 'lon': -88.8965},    # El Salvador
-    'MEX': {'lat': 23.6345, 'lon': -102.5528},   # México
-    'CHI': {'lat': -35.6751, 'lon': -71.5430},   # Chile
-    'GUA': {'lat': 15.7835, 'lon': -90.2308},    # Guatemala
-    'HON': {'lat': 15.2000, 'lon': -86.2419},    # Honduras
-    'NIC': {'lat': 12.8654, 'lon': -85.2072},    # Nicarágua
-    'PAN': {'lat': 8.5380, 'lon': -80.7821},     # Panamá
-    'BOL': {'lat': -16.2902, 'lon': -63.5887},   # Bolívia
-    'URU': {'lat': -32.5228, 'lon': -55.7658},   # Uruguai
-    'PAR': {'lat': -23.4425, 'lon': -58.4438},   # Paraguai
-    'CRI': {'lat': 9.7489, 'lon': -83.7534},     # Costa Rica
-}
-
-# Função para extrair a sigla do país
-def extrair_sigla_pais(pais):
-    return mapeamento_paises.get(str(pais).upper(), 'EX')
 
 def criar_df_fat_estado(df):
     # Separar dados do Brasil e do exterior
@@ -312,9 +341,6 @@ def criar_mapa_estado(df_filtrado):
     return fig
 
 def criar_grafico_linha_mensal(df_filtrado):
-    # Configurar locale para formatação brasileira
-    locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
-    
     # Remover linhas com datas nulas
     df_filtrado = df_filtrado.dropna(subset=['data'])
     
