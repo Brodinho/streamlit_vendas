@@ -24,7 +24,7 @@ sys.path.append(str(root_path))
 
 # Importações locais
 from dataset import df
-from utils import formatar_moeda
+from utils import formatar_moeda, meses_abrev_pt, formatar_data_abrev, formatar_data_abrev_curta
 from grafics import coordenadas_estados, coordenadas_paises, siglas_estados, extrair_sigla_pais
 
 # Configurar locale para português brasileiro
@@ -629,35 +629,48 @@ with tab3:
     # Gráfico de evolução
     fig = go.Figure()
     
+    # Converter índice para string formatada
+    datas_formatadas = df_evolucao.index.strftime('%Y-%m')
+    
     # Adicionar linha de clientes ativos
     fig.add_trace(go.Scatter(
-        x=df_evolucao.index.astype(str),
+        x=datas_formatadas,
         y=df_evolucao['Clientes Ativos'],
         name='Clientes Ativos',
         line=dict(color='blue', width=2),
-        hovertemplate='Data: %{x}<br>Clientes Ativos: %{y:,.0f}<extra></extra>'
+        hovertemplate='Clientes Ativos: %{y:,.0f}<extra></extra>'
     ))
     
     # Adicionar linha de novos clientes
     fig.add_trace(go.Scatter(
-        x=df_evolucao.index.astype(str),
+        x=datas_formatadas,
         y=df_evolucao['Novos Clientes'],
         name='Novos Clientes',
         line=dict(color='green', width=2),
-        hovertemplate='Data: %{x}<br>Novos Clientes: %{y:,.0f}<extra></extra>'
+        hovertemplate='Novos Clientes: %{y:,.0f}<extra></extra>'
     ))
     
-    # Configurar layout
+    # Configurar layout com hover unificado
     fig.update_layout(
         title='Evolução da Base de Clientes',
         xaxis_title='Período',
         yaxis_title='Número de Clientes',
         hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
         showlegend=True,
         height=400,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white")
+    )
+
+    # Formatar as datas no eixo X
+    fig.update_xaxes(
+        ticktext=[formatar_data_abrev(data) for data in datas_formatadas],
+        tickvals=datas_formatadas
     )
     
     # Exibir gráfico
@@ -666,24 +679,44 @@ with tab3:
     # Gráfico da taxa de retenção
     fig_retencao = go.Figure()
     
+    # Converter índice para string formatada
+    datas_formatadas_retencao = df_evolucao.index.strftime('%Y-%m')
+    
+    # Criar lista de datas formatadas para o hover
+    datas_hover = [formatar_data_abrev(data) for data in datas_formatadas_retencao]
+    
+    # Adicionar linha de taxa de retenção
     fig_retencao.add_trace(go.Scatter(
-        x=df_evolucao.index.astype(str),
+        x=datas_formatadas_retencao,
         y=df_evolucao['Taxa de Retenção (%)'],
         name='Taxa de Retenção',
         line=dict(color='orange', width=2),
-        hovertemplate='Data: %{x}<br>Taxa de Retenção: %{y:.1f}%<extra></extra>'
+        customdata=df_evolucao['Taxa de Retenção (%)'],  # Dados para o hover
+        hovertemplate='Taxa de Retenção: %{customdata:.1f}%<extra></extra>'  # Template simplificado
     ))
     
+    # Configurar layout
     fig_retencao.update_layout(
         title='Taxa de Retenção Mensal',
         xaxis_title='Período',
         yaxis_title='Taxa de Retenção (%)',
         hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
         showlegend=True,
         height=400,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white")
     )
+
+    # Formatar as datas no eixo X
+    fig_retencao.update_xaxes(
+        ticktext=[formatar_data_abrev_curta(data) for data in datas_formatadas_retencao],
+        tickvals=datas_formatadas_retencao
+    )
     
+    # Exibir gráfico
     st.plotly_chart(fig_retencao, use_container_width=True)

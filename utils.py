@@ -137,6 +137,63 @@ meses_pt = {
     "November" : "Novembro",
     "December" : "Dezembro"
 }
+
+# Novo dicionário para meses abreviados
+meses_abrev_pt = {
+    'Jan': 'Janeiro',
+    'Feb': 'Fevereiro',
+    'Mar': 'Março',
+    'Apr': 'Abril',
+    'May': 'Maio',
+    'Jun': 'Junho',
+    'Jul': 'Julho',
+    'Aug': 'Agosto',
+    'Sep': 'Setembro',
+    'Oct': 'Outubro',
+    'Nov': 'Novembro',
+    'Dec': 'Dezembro'
+}
+
+# Função para formatar data com mês abreviado
+def formatar_data_abrev(data_str):
+    """
+    Formata uma data no formato Period (YYYY-MM) para o formato 'Mês de Ano' em português
+    """
+    try:
+        # Se a data vier no formato YYYY-MM
+        ano, mes = data_str.split('-')
+        # Converter número do mês para nome abreviado em inglês
+        meses_num_para_abrev = {
+            '01': 'Jan', '02': 'Feb', '03': 'Mar',
+            '04': 'Apr', '05': 'May', '06': 'Jun',
+            '07': 'Jul', '08': 'Aug', '09': 'Sep',
+            '10': 'Oct', '11': 'Nov', '12': 'Dec'
+        }
+        mes_abrev = meses_num_para_abrev[mes]
+        return f"{meses_abrev_pt[mes_abrev]} de {ano}"
+    except:
+        # Se houver qualquer erro, retorna a string original
+        return data_str
+
+def formatar_data_abrev_curta(data_str):
+    """
+    Formata uma data para exibir o mês abreviado em português e o ano
+    Exemplo: 'Jan de 2024'
+    """
+    data_formatada = formatar_data_abrev(data_str)
+    return (data_formatada.replace('Janeiro', 'Jan')
+                         .replace('Fevereiro', 'Fev')
+                         .replace('Março', 'Mar')
+                         .replace('Abril', 'Abr')
+                         .replace('Maio', 'Mai')
+                         .replace('Junho', 'Jun')
+                         .replace('Julho', 'Jul')
+                         .replace('Agosto', 'Ago')
+                         .replace('Setembro', 'Set')
+                         .replace('Outubro', 'Out')
+                         .replace('Novembro', 'Nov')
+                         .replace('Dezembro', 'Dez'))
+
 # set_index('emissao'): Define a coluna emissao como índice para a operação de agrupamento.
 # groupby(pd.Grouper(freq='M')): Agrupa os dados por mês, usando pd.Grouper com a frequência mensal ('M').
 # ['valorNota']: Acessa diretamente a coluna valorNota para aplicar a soma.
