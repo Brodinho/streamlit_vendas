@@ -99,6 +99,64 @@ tab1, tab2, tab3 = st.tabs(["📊 Visão Geral", "🌎 Análise Geográfica", "�
 
 # Aba Visão Geral
 with tab1:
+    # Estilo CSS personalizado
+    st.markdown("""
+    <style>
+        .recency-box {
+            background-color: #2b2d3e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        .recency-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .recency-intro {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        .recency-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            color: #ffffff;
+        }
+        .recency-conclusion {
+            color: #ffffff;
+            margin-top: 20px;
+            font-style: italic;
+        }
+    </style>
+    
+    <div class="recency-box">
+        <div class="recency-title">
+            📊 Análise de Recência
+        </div>
+        <div class="recency-intro">
+            A análise de recência é uma métrica fundamental para entender o comportamento dos clientes 
+            e seu nível de engajamento com a empresa. Ela é baseada no tempo decorrido desde a última compra:
+        </div>
+        <div class="recency-item">
+            ✅ <strong>Últimos 30 dias</strong>: Clientes ativos e engajados, que mantêm uma relação comercial recente e frequente
+        </div>
+        <div class="recency-item">
+            ⚠️ <strong>31-90 dias</strong>: Clientes que precisam de atenção, pois estão se afastando do ciclo regular de compras
+        </div>
+        <div class="recency-item">
+            🚨 <strong>91-180 dias</strong>: Clientes em risco de abandono, necessitando de ações de retenção
+        </div>
+        <div class="recency-item">
+            ❗ <strong>Mais de 180 dias</strong>: Clientes inativos que precisam ser recuperados através de estratégias específicas
+        </div>
+        <div class="recency-conclusion">
+            O gráfico abaixo mostra a distribuição dos clientes nestas categorias:
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Recência
     df_recencia = df_filtrado.groupby('razao')['data'].max().apply(lambda x: (datetime.now() - x).days)
     faixas_recencia = pd.cut(df_recencia, bins=[0, 30, 90, 180, float('inf')],
@@ -138,20 +196,7 @@ with tab1:
         else:
             return 'Cliente inativo que precisa ser recuperado'
 
-    # Criar DataFrame com as informações necessárias
-    df_clientes = df.groupby('codcli').agg({
-        'razao': 'first',
-        'cnpj': 'first',
-        'emissao': 'max'  # Pega a data mais recente de compra
-    }).reset_index()
-
-    # Adicionar coluna de status
-    df_clientes['Status'] = df_clientes['emissao'].apply(determinar_status_cliente)
-
-    # Ordenar por data de última compra (mais recente primeiro)
-    df_clientes = df_clientes.sort_values('emissao', ascending=False)
-
-    # Formatar documento
+    # Definir função para formatar documento antes de usar
     def formatar_documento(doc):
         try:
             if pd.isna(doc) or str(doc).strip() == '':
@@ -174,17 +219,35 @@ with tab1:
         except:
             return "Documento Inválido"
 
-    # Atualizar o DataFrame com a nova formatação
-    df_clientes['Documento'] = df_clientes['cnpj'].apply(formatar_documento)
+    # Criar DataFrame com as informações necessárias
+    df_clientes = df.groupby('codcli').agg({
+        'razao': 'first',
+        'cnpj': 'first',
+        'emissao': ['min', 'max']  # Pega a primeira e última data de compra
+    }).reset_index()
 
-    # Renomear colunas para exibição
-    df_clientes = df_clientes.rename(columns={
-        'codcli': 'Código',
-        'razao': 'Razão Social',
-    })
+    # Ajustar os nomes das colunas após o agg
+    df_clientes.columns = ['Código', 'Razão Social', 'CNPJ', 'Primeira Compra', 'Última Compra']
+    
+    # Adicionar coluna de status baseado na última compra
+    df_clientes['Status'] = df_clientes['Última Compra'].apply(determinar_status_cliente)
+
+    # Formatar as datas
+    df_clientes['Primeira Compra'] = df_clientes['Primeira Compra'].dt.strftime('%d/%m/%Y')
+    df_clientes['Última Compra'] = df_clientes['Última Compra'].dt.strftime('%d/%m/%Y')
+
+    # Formatar documento
+    df_clientes['Documento'] = df_clientes['CNPJ'].apply(formatar_documento)
 
     # Selecionar e ordenar colunas para exibição
-    df_clientes = df_clientes[['Código', 'Razão Social', 'Documento', 'Status']]
+    df_clientes = df_clientes[[
+        'Código', 
+        'Razão Social', 
+        'Documento', 
+        'Primeira Compra',
+        'Última Compra',
+        'Status'
+    ]]
 
     # Criar estilo condicional baseado no status
     def highlight_status(val):
@@ -198,10 +261,46 @@ with tab1:
             return 'background-color: #000000; color: #FF0000'  # Fundo preto, texto vermelho
         return ''
 
+    # Definir ordem personalizada para os status
+    ordem_status = [
+        'Cliente ativo e engajado',
+        'Cliente que precisa de atenção',
+        'Cliente em risco de abandono',
+        'Cliente inativo que precisa ser recuperado'
+    ]
+
+    # Criar categoria ordenada
+    df_clientes['Status_ordem'] = pd.Categorical(
+        df_clientes['Status'],
+        categories=ordem_status,
+        ordered=True
+    )
+
+    # Ordenar DataFrame pela ordem personalizada
+    df_clientes = df_clientes.sort_values('Status_ordem')
+    
+    # Remover coluna auxiliar de ordenação
+    df_clientes = df_clientes.drop('Status_ordem', axis=1)
+
+    # Adicionar filtro de status
+    st.subheader("Filtrar por Status")
+    status_selecionados = st.multiselect(
+        'Selecione os status que deseja visualizar:',
+        options=ordem_status,
+        default=ordem_status,  # Todos selecionados por padrão
+        key='status_filter'
+    )
+
+    # Filtrar DataFrame baseado na seleção
+    if status_selecionados:
+        df_clientes_filtrado = df_clientes[df_clientes['Status'].isin(status_selecionados)]
+    else:
+        df_clientes_filtrado = df_clientes
+
     # Exibir tabela com estilo
     st.subheader("Status dos Clientes")
     st.dataframe(
-        df_clientes.style.applymap(
+        df_clientes_filtrado.style.applymap(
             highlight_status,
             subset=['Status']
         ),
@@ -209,23 +308,23 @@ with tab1:
         hide_index=True
     )
 
-    # Adicionar métricas resumidas
+    # Atualizar métricas baseado no DataFrame filtrado
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        n_ativos = len(df_clientes[df_clientes['Status'] == 'Cliente ativo e engajado'])
+        n_ativos = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente ativo e engajado'])
         st.metric("Clientes Ativos", n_ativos)
 
     with col2:
-        n_atencao = len(df_clientes[df_clientes['Status'] == 'Cliente que precisa de atenção'])
+        n_atencao = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente que precisa de atenção'])
         st.metric("Precisam de Atenção", n_atencao)
 
     with col3:
-        n_risco = len(df_clientes[df_clientes['Status'] == 'Cliente em risco de abandono'])
+        n_risco = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente em risco de abandono'])
         st.metric("Em Risco", n_risco)
 
     with col4:
-        n_inativos = len(df_clientes[df_clientes['Status'] == 'Cliente inativo que precisa ser recuperado'])
+        n_inativos = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente inativo que precisa ser recuperado'])
         st.metric("Inativos", n_inativos)
 
 # Aba Análise Geográfica
