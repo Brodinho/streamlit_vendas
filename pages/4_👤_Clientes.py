@@ -528,4 +528,162 @@ with tab2:
 
 # Aba Análise Temporal
 with tab3:
-    pass  # Mantenha o código existente da análise temporal aqui
+    st.markdown("""
+    <style>
+        .temporal-box {
+            background-color: #2b2d3e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        .temporal-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .temporal-intro {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+    </style>
+    
+    <div class="temporal-box">
+        <div class="temporal-title">
+            📈 Evolução da Base de Clientes
+        </div>
+        <div class="temporal-intro">
+            Análise temporal mostrando o crescimento e comportamento da base de clientes ao longo do tempo,
+            incluindo número de clientes ativos, novos clientes e taxa de retenção mensal.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Preparar dados para análise temporal
+    def preparar_dados_evolucao_clientes(df):
+        # Criar DataFrame com data e cliente
+        df_temporal = df[['data', 'razao']].copy()
+        df_temporal['ano_mes'] = df_temporal['data'].dt.to_period('M')
+        
+        # Clientes ativos por mês
+        clientes_ativos = df_temporal.groupby('ano_mes')['razao'].nunique()
+        
+        # Identificar primeira compra de cada cliente
+        primeira_compra = df_temporal.groupby('razao')['data'].min().reset_index()
+        primeira_compra['ano_mes'] = primeira_compra['data'].dt.to_period('M')
+        novos_clientes = primeira_compra.groupby('ano_mes').size()
+        
+        # Calcular taxa de retenção
+        def calcular_retencao(mes_atual, mes_anterior):
+            if mes_anterior == 0:
+                return 0
+            return (mes_atual / mes_anterior) * 100
+        
+        retencao = []
+        clientes_lista = list(clientes_ativos)
+        for i in range(len(clientes_lista)):
+            if i == 0:
+                retencao.append(100)
+            else:
+                retencao.append(calcular_retencao(clientes_lista[i], clientes_lista[i-1]))
+        
+        # Criar DataFrame final
+        df_evolucao = pd.DataFrame({
+            'Clientes Ativos': clientes_ativos,
+            'Novos Clientes': novos_clientes,
+            'Taxa de Retenção (%)': retencao
+        })
+        
+        return df_evolucao
+
+    # Criar gráficos
+    df_evolucao = preparar_dados_evolucao_clientes(df_filtrado)
+    
+    # Três colunas para métricas principais
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        ultimo_mes_ativos = df_evolucao['Clientes Ativos'].iloc[-1]
+        st.metric(
+            "Clientes Ativos (Último Mês)", 
+            f"{ultimo_mes_ativos:,.0f}",
+            f"{((ultimo_mes_ativos - df_evolucao['Clientes Ativos'].iloc[-2]) / df_evolucao['Clientes Ativos'].iloc[-2] * 100):,.1f}%"
+        )
+    
+    with col2:
+        novos_ultimo_mes = df_evolucao['Novos Clientes'].iloc[-1]
+        st.metric(
+            "Novos Clientes (Último Mês)", 
+            f"{novos_ultimo_mes:,.0f}",
+            f"{((novos_ultimo_mes - df_evolucao['Novos Clientes'].iloc[-2]) / df_evolucao['Novos Clientes'].iloc[-2] * 100):,.1f}%"
+        )
+    
+    with col3:
+        retencao_atual = df_evolucao['Taxa de Retenção (%)'].iloc[-1]
+        st.metric(
+            "Taxa de Retenção Atual", 
+            f"{retencao_atual:.1f}%",
+            f"{(retencao_atual - df_evolucao['Taxa de Retenção (%)'].iloc[-2]):,.1f}%"
+        )
+
+    # Gráfico de evolução
+    fig = go.Figure()
+    
+    # Adicionar linha de clientes ativos
+    fig.add_trace(go.Scatter(
+        x=df_evolucao.index.astype(str),
+        y=df_evolucao['Clientes Ativos'],
+        name='Clientes Ativos',
+        line=dict(color='blue', width=2),
+        hovertemplate='Data: %{x}<br>Clientes Ativos: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Adicionar linha de novos clientes
+    fig.add_trace(go.Scatter(
+        x=df_evolucao.index.astype(str),
+        y=df_evolucao['Novos Clientes'],
+        name='Novos Clientes',
+        line=dict(color='green', width=2),
+        hovertemplate='Data: %{x}<br>Novos Clientes: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Configurar layout
+    fig.update_layout(
+        title='Evolução da Base de Clientes',
+        xaxis_title='Período',
+        yaxis_title='Número de Clientes',
+        hovermode='x unified',
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+    
+    # Exibir gráfico
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Gráfico da taxa de retenção
+    fig_retencao = go.Figure()
+    
+    fig_retencao.add_trace(go.Scatter(
+        x=df_evolucao.index.astype(str),
+        y=df_evolucao['Taxa de Retenção (%)'],
+        name='Taxa de Retenção',
+        line=dict(color='orange', width=2),
+        hovertemplate='Data: %{x}<br>Taxa de Retenção: %{y:.1f}%<extra></extra>'
+    ))
+    
+    fig_retencao.update_layout(
+        title='Taxa de Retenção Mensal',
+        xaxis_title='Período',
+        yaxis_title='Taxa de Retenção (%)',
+        hovermode='x unified',
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+    
+    st.plotly_chart(fig_retencao, use_container_width=True)
