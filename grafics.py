@@ -396,39 +396,57 @@ def criar_grafico_linha_mensal(df_filtrado):
     return fig
 
 def criar_grafico_barras_estado(df_filtrado):
-    # Filtrar apenas estados brasileiros
+    # Preparar dados para estados brasileiros
     df_brasil = df_filtrado[df_filtrado['uf'] != 'EX'].copy()
+    df_brasil_fat = df_brasil.groupby('uf')['valorfaturado'].sum().reset_index()
+    df_brasil_fat['Nome_Local'] = df_brasil_fat['uf'].map(siglas_estados)
     
-    # Preparar dados
-    df_estados = df_brasil.groupby('uf')['valorfaturado'].sum().sort_values(ascending=True).head(5)
+    # Preparar dados para países
+    df_exterior = df_filtrado[df_filtrado['uf'] == 'EX'].copy()
+    df_exterior_fat = df_exterior.groupby('pais')['valorfaturado'].sum().reset_index()
+    df_exterior_fat['uf'] = df_exterior_fat['pais'].apply(extrair_sigla_pais)
+    df_exterior_fat['Nome_Local'] = df_exterior_fat['uf'].map(siglas_estados)
+    
+    # Combinar dados de estados e países
+    df_combinado = pd.concat([
+        df_brasil_fat[['uf', 'Nome_Local', 'valorfaturado']],
+        df_exterior_fat[['uf', 'Nome_Local', 'valorfaturado']]
+    ], ignore_index=True)
+    
+    # Ordenar e pegar top 5 (ordem decrescente)
+    df_top5 = df_combinado.nlargest(5, 'valorfaturado').sort_values('valorfaturado', ascending=True)
     
     # Criar gráfico
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        y=df_estados.index,
-        x=df_estados.values,
-        text=[formatar_moeda(valor) for valor in df_estados.values],
-        textposition='auto',
-        marker_color=['green' if i == 4 else '#636EFA' for i in range(len(df_estados))],
-        orientation='h'
+        y=df_top5['Nome_Local'],
+        x=df_top5['valorfaturado'],
+        text=[formatar_moeda(valor) for valor in df_top5['valorfaturado']],
+        textposition='outside',
+        marker_color=[
+            'red' if uf in coordenadas_paises.keys() else '#636EFA' 
+            for uf in df_top5['uf']
+        ],
+        orientation='h',
+        hovertemplate='%{y}<br>' +  # Nome do Estado/País
+                      '%{customdata}<br>' +  # Valor formatado em R$
+                      '<extra></extra>',  # Remove informações extras
+        customdata=[formatar_moeda(valor) for valor in df_top5['valorfaturado']]
     ))
     
-    # Configurar eixo X (valores monetários)
-    max_valor = df_estados.max()
-    step = 100000  # Step de 100 mil
-    num_steps = math.ceil(max_valor / step)
-    max_escala = num_steps * step
-    tick_values = [i * step for i in range(num_steps + 1)]
+    # Simplificar o eixo X usando menos divisões
+    max_valor = df_top5['valorfaturado'].max()
+    num_divisoes = 5  # Reduzir número de divisões
+    step = math.ceil(max_valor / num_divisoes / 1000000) * 1000000  # Arredondar para milhões
+    tick_values = [i * step for i in range(num_divisoes + 1)]
     
     fig.update_layout(
-        title='Top 5 Estados em Faturamento',
-        xaxis_title="",
-        yaxis_title="",
+        title='Top 5 Estados/Países em Faturamento',
         xaxis=dict(
             tickmode="array",
             tickvals=tick_values,
             ticktext=[formatar_moeda(x) for x in tick_values],
-            range=[0, max_escala],
+            range=[0, max(tick_values)],
             showgrid=True,
             gridwidth=1,
             gridcolor='rgba(128, 128, 128, 0.2)'
@@ -437,7 +455,8 @@ def criar_grafico_barras_estado(df_filtrado):
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white"),
         height=400,
-        showlegend=False
+        showlegend=False,
+        margin=dict(l=150)  # Aumentar margem esquerda para acomodar nomes longos
     )
     
     return fig
