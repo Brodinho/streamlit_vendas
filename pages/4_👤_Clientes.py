@@ -278,8 +278,6 @@ with tab1:
 
     # Ordenar DataFrame pela ordem personalizada
     df_clientes = df_clientes.sort_values('Status_ordem')
-    
-    # Remover coluna auxiliar de ordenação
     df_clientes = df_clientes.drop('Status_ordem', axis=1)
 
     # Adicionar filtro de status
@@ -287,7 +285,7 @@ with tab1:
     status_selecionados = st.multiselect(
         'Selecione os status que deseja visualizar:',
         options=ordem_status,
-        default=ordem_status,  # Todos selecionados por padrão
+        default=ordem_status,
         key='status_filter'
     )
 
@@ -329,7 +327,112 @@ with tab1:
 
 # Aba Análise Geográfica
 with tab2:
-    pass  # Mantenha o código existente da análise geográfica aqui
+    # Box explicativo
+    st.markdown("""
+    <style>
+        .geo-box {
+            background-color: #2b2d3e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        .geo-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .geo-intro {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+    </style>
+    
+    <div class="geo-box">
+        <div class="geo-title">
+            🌎 Análise Geográfica de Clientes
+        </div>
+        <div class="geo-intro">
+            A análise geográfica permite visualizar a distribuição dos clientes por estados e países, 
+            identificando concentrações regionais e oportunidades de expansão. Os dados apresentados incluem:
+            <br><br>
+            • Número de clientes por região<br>
+            • Volume de vendas por localidade<br>
+            • Visualização em mapa para melhor contexto espacial
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Criar colunas para métricas
+    col1, col2, col3 = st.columns(3)
+
+    # Métricas por localidade
+    with col1:
+        total_estados = df_filtrado['uf'].nunique()
+        st.metric("Total de Estados", total_estados)
+
+    with col2:
+        media_clientes_estado = df_filtrado.groupby('uf')['razao'].nunique().mean()
+        st.metric("Média de Clientes por Estado", f"{media_clientes_estado:.1f}")
+
+    with col3:
+        estado_mais_clientes = df_filtrado.groupby('uf')['razao'].nunique().idxmax()
+        st.metric("Estado com Mais Clientes", estado_mais_clientes)
+
+    # Distribuição de clientes por estado/país
+    df_dist_clientes = df_filtrado.groupby('uf')['razao'].nunique().reset_index()
+    df_dist_clientes = df_dist_clientes.sort_values('razao', ascending=True)
+
+    fig_dist = go.Figure(data=[
+        go.Bar(
+            x=df_dist_clientes['razao'],
+            y=df_dist_clientes['uf'],
+            orientation='h',
+            marker_color='#4169E1'
+        )
+    ])
+
+    fig_dist.update_layout(
+        title='Distribuição de Clientes por Estado/País',
+        xaxis_title='Número de Clientes',
+        yaxis_title='Estado/País',
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    st.plotly_chart(fig_dist, use_container_width=True)
+
+    # Mapa Choropleth
+    df_mapa = df_filtrado.groupby('uf').agg({
+        'razao': 'nunique',
+        'valorNota': 'sum'
+    }).reset_index()
+
+    fig_mapa = go.Figure(data=go.Choropleth(
+        locations=df_mapa['uf'],
+        z=df_mapa['razao'],
+        locationmode='ISO-3',
+        colorscale='Blues',
+        colorbar_title="Número de Clientes"
+    ))
+
+    fig_mapa.update_layout(
+        title='Distribuição Geográfica de Clientes',
+        geo=dict(
+            scope='south america',
+            showframe=False,
+            showcoastlines=True,
+            projection_type='equirectangular'
+        ),
+        height=600,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    st.plotly_chart(fig_mapa, use_container_width=True)
 
 # Aba Análise Temporal
 with tab3:
