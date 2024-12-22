@@ -364,7 +364,7 @@ with tab2:
             <br><br>
             • Número de clientes por região<br>
             • Volume de vendas por localidade<br>
-            ��� Visualização em mapa para melhor contexto espacial
+            • Visualização em mapa para melhor contexto espacial
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -877,3 +877,180 @@ with tab3:
     )
 
     st.plotly_chart(fig_dist, use_container_width=True)
+
+    # Separador
+    st.divider()
+
+    # Título da nova seção
+    st.markdown("""
+    <style>
+        .valor-box {
+            background-color: #2b2d3e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        .valor-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .valor-intro {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+    </style>
+    
+    <div class="valor-box">
+        <div class="valor-title">
+            💰 Análise de Valor do Cliente
+        </div>
+        <div class="valor-intro">
+            Análise do valor monetário gerado pelos clientes, incluindo:
+            <br>• Evolução do ticket médio por cliente
+            <br>• Valor do cliente ao longo da vida (LTV)
+            <br>• Segmentação por faixa de valor
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Calcular métricas de valor
+    def calcular_metricas_valor(df):
+        # Agrupar por cliente
+        valor_clientes = df.groupby('razao').agg({
+            'valorNota': ['sum', 'mean', 'count']
+        }).reset_index()
+        
+        # Renomear colunas
+        valor_clientes.columns = ['Cliente', 'Valor_Total', 'Ticket_Medio', 'Num_Compras']
+        
+        # Calcular LTV (valor total histórico)
+        valor_clientes['LTV'] = valor_clientes['Valor_Total']
+        
+        return valor_clientes
+
+    # Calcular métricas
+    valor_clientes = calcular_metricas_valor(df_filtrado)
+
+    # Métricas principais em cards
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        ticket_medio_geral = valor_clientes['Ticket_Medio'].mean()
+        st.metric("Ticket Médio Geral", formatar_moeda(ticket_medio_geral))
+
+    with col2:
+        ltv_medio = valor_clientes['LTV'].mean()
+        st.metric("LTV Médio", formatar_moeda(ltv_medio))
+
+    with col3:
+        clientes_alto_valor = len(valor_clientes[valor_clientes['LTV'] > ltv_medio])
+        st.metric("Clientes Alto Valor", f"{clientes_alto_valor}")
+
+    # Gráfico de evolução do ticket médio mensal
+    ticket_mensal = df_filtrado.groupby(df_filtrado['data'].dt.to_period('M')).agg({
+        'valorNota': 'mean'
+    }).reset_index()
+    
+    ticket_mensal['data'] = ticket_mensal['data'].astype(str)
+
+    # Gráfico de linha para ticket médio
+    fig_ticket = go.Figure()
+
+    fig_ticket.add_trace(go.Scatter(
+        x=ticket_mensal['data'],
+        y=ticket_mensal['valorNota'],
+        name='Ticket Médio',
+        line=dict(color='#32CD32', width=2),
+        customdata=ticket_mensal['valorNota'],
+        hovertemplate='Ticket Médio: R$ %{customdata:,.2f}<extra></extra>'
+    ))
+
+    fig_ticket.update_layout(
+        title='Evolução do Ticket Médio',
+        xaxis_title='Período',
+        yaxis_title='Valor (R$)',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    # Formatar valores no eixo Y
+    fig_ticket.update_yaxes(
+        tickformat='R$ ,.2f'
+    )
+
+    # Formatar datas no eixo X
+    fig_ticket.update_xaxes(
+        ticktext=[formatar_data_abrev_curta(data) for data in ticket_mensal['data']],
+        tickvals=ticket_mensal['data']
+    )
+
+    st.plotly_chart(fig_ticket, use_container_width=True)
+
+    # Distribuição de clientes por faixa de valor (LTV)
+    def definir_faixa_valor(valor):
+        if valor <= 1000:
+            return 'Até R$ 1.000,00'
+        elif valor <= 5000:
+            return 'De R$ 1.001,00 a R$ 5.000,00'
+        elif valor <= 10000:
+            return 'De R$ 5.001,00 a R$ 10.000,00'
+        elif valor <= 50000:
+            return 'De R$ 10.001,00 a R$ 50.000,00'
+        else:
+            return 'Acima de R$ 50.000,00'
+
+    # Lista com a ordem correta das faixas
+    ordem_faixas = [
+        'Até R$ 1.000,00',
+        'De R$ 1.001,00 a R$ 5.000,00',
+        'De R$ 5.001,00 a R$ 10.000,00',
+        'De R$ 10.001,00 a R$ 50.000,00',
+        'Acima de R$ 50.000,00'
+    ]
+
+    valor_clientes['faixa_valor'] = valor_clientes['LTV'].apply(definir_faixa_valor)
+    
+    # Criar Series com a ordem correta
+    dist_valor = pd.Series(
+        index=ordem_faixas,
+        data=[len(valor_clientes[valor_clientes['faixa_valor'] == faixa]) for faixa in ordem_faixas]
+    )
+
+    fig_dist_valor = go.Figure()
+
+    fig_dist_valor.add_trace(go.Bar(
+        x=dist_valor.index,
+        y=dist_valor.values,
+        text=dist_valor.values,
+        textposition='auto',
+        marker_color='#32CD32',
+        hovertemplate='Quantidade de Clientes: %{y}<extra></extra>'
+    ))
+
+    fig_dist_valor.update_layout(
+        title='Distribuição de Clientes por Faixa de Valor (LTV)',
+        xaxis_title='Faixa de Valor',
+        yaxis_title='Número de Clientes',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=False,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    st.plotly_chart(fig_dist_valor, use_container_width=True)
