@@ -187,6 +187,178 @@ with tab1:
     # Exibir o gráfico de recência
     st.plotly_chart(fig_recencia, use_container_width=True)
 
+    # Separador para nova seção
+    st.divider()
+
+    # Título da seção complementar
+    st.markdown("""
+    <style>
+        .engagement-box {
+            background-color: #2b2d3e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        .engagement-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .engagement-intro {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+    </style>
+    
+    <div class="engagement-box">
+        <div class="engagement-title">
+            📊 Indicadores de Conversão e Engajamento
+        </div>
+        <div class="engagement-intro">
+            Análise da evolução do engajamento dos clientes e efetividade das ações de reativação.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Calcular taxa de conversão de inativos para ativos
+    def calcular_taxa_conversao(df):
+        # Criar DataFrame com status do cliente por mês
+        status_mensal = []
+        
+        for data in pd.date_range(df['data'].min(), df['data'].max(), freq='M'):
+            # Pegar compras até o mês atual
+            df_ate_mes = df[df['data'] <= data]
+            
+            # Calcular recência para cada cliente neste ponto no tempo
+            recencia = df_ate_mes.groupby('razao')['data'].max().apply(
+                lambda x: (data - x).days
+            )
+            
+            # Classificar clientes
+            inativos_anterior = set(recencia[recencia > 180].index)
+            
+            # Pegar compras do mês seguinte
+            mes_seguinte = data + pd.DateOffset(months=1)
+            df_mes_seguinte = df[
+                (df['data'] > data) & 
+                (df['data'] <= mes_seguinte)
+            ]
+            
+            # Contar quantos inativos compraram no mês seguinte
+            reativados = len(set(df_mes_seguinte['razao']) & inativos_anterior)
+            
+            status_mensal.append({
+                'data': data,
+                'inativos': len(inativos_anterior),
+                'reativados': reativados
+            })
+        
+        df_status = pd.DataFrame(status_mensal)
+        df_status['taxa_conversao'] = (df_status['reativados'] / df_status['inativos'] * 100)
+        return df_status
+
+    # Calcular taxa de conversão
+    df_conversao = calcular_taxa_conversao(df_filtrado)
+
+    # Gráfico de taxa de conversão
+    fig_conversao = go.Figure()
+
+    fig_conversao.add_trace(go.Scatter(
+        x=df_conversao['data'],
+        y=df_conversao['taxa_conversao'],
+        name='Taxa de Conversão',
+        line=dict(color='#4169E1', width=2),
+        hovertemplate='Taxa de Conversão: %{y:.1f}%<extra></extra>'
+    ))
+
+    fig_conversao.update_layout(
+        title='Taxa de Conversão de Clientes Inativos para Ativos',
+        xaxis_title='Período',
+        yaxis_title='Taxa de Conversão (%)',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    st.plotly_chart(fig_conversao, use_container_width=True)
+
+    # Calcular e plotar evolução da recência média
+    def calcular_recencia_media(df):
+        recencia_mensal = []
+        
+        for data in pd.date_range(df['data'].min(), df['data'].max(), freq='M'):
+            df_ate_mes = df[df['data'] <= data]
+            recencia = df_ate_mes.groupby('razao')['data'].max().apply(
+                lambda x: (data - x).days
+            )
+            
+            recencia_mensal.append({
+                'data': data,
+                'recencia_media': recencia.mean()
+            })
+            
+        return pd.DataFrame(recencia_mensal)
+
+    # Calcular recência média
+    df_recencia = calcular_recencia_media(df_filtrado)
+
+    # Gráfico de evolução da recência média
+    fig_recencia = go.Figure()
+
+    fig_recencia.add_trace(go.Scatter(
+        x=df_recencia['data'],
+        y=df_recencia['recencia_media'],
+        name='Recência Média',
+        line=dict(color='#32CD32', width=2),
+        hovertemplate='Recência Média: %{y:.0f} dias<extra></extra>'
+    ))
+
+    fig_recencia.update_layout(
+        title='Evolução da Recência Média das Compras',
+        xaxis_title='Período',
+        yaxis_title='Dias desde a última compra',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    st.plotly_chart(fig_recencia, use_container_width=True)
+
+    # Adicionar métricas resumidas
+    col1, col2 = st.columns(2)
+
+    with col1:
+        taxa_conversao_atual = df_conversao['taxa_conversao'].iloc[-1]
+        st.metric(
+            "Taxa de Conversão Atual", 
+            f"{taxa_conversao_atual:.1f}%",
+            delta=f"{taxa_conversao_atual - df_conversao['taxa_conversao'].iloc[-2]:.1f}pp"
+        )
+
+    with col2:
+        recencia_atual = df_recencia['recencia_media'].iloc[-1]
+        st.metric(
+            "Recência Média Atual", 
+            f"{recencia_atual:.0f} dias",
+            delta=f"{df_recencia['recencia_media'].iloc[-2] - recencia_atual:.0f} dias",
+            delta_color="inverse"
+        )
+
     # Calcular a data mais recente do DataFrame
     data_atual = df['emissao'].max()
 
