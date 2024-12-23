@@ -1054,3 +1054,216 @@ with tab3:
     )
 
     st.plotly_chart(fig_dist_valor, use_container_width=True)
+
+    # Separador
+    st.divider()
+
+    # Título da nova seção
+    st.markdown("""
+    <style>
+        .sazon-box {
+            background-color: #2b2d3e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        .sazon-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .sazon-intro {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        .sazon-detail {
+            color: #FFD700;
+            font-style: italic;
+            margin-top: 15px;
+            padding: 10px;
+            border-left: 3px solid #FFD700;
+            background-color: rgba(255, 215, 0, 0.1);
+        }
+    </style>
+    
+    <div class="sazon-box">
+        <div class="sazon-title">
+            📅 Análise de Sazonalidade
+        </div>
+        <div class="sazon-intro">
+            Análise dos padrões temporais de atividade dos clientes, incluindo:
+            <br>• Variação mensal e trimestral de clientes ativos
+            <br>• Períodos de maior aquisição de novos clientes
+            <br>• Padrões de reativação de clientes
+        </div>
+        <div class="sazon-detail">
+            ℹ️ Consideramos como "cliente reativado" aquele que realiza uma nova compra após um período 
+            de inatividade superior a 180 dias (6 meses). Este critério nos ajuda a identificar clientes 
+            que retornam após um longo período sem interação com a empresa.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Análise de clientes ativos por mês
+    clientes_mes = df_filtrado.groupby(df_filtrado['data'].dt.to_period('M')).agg({
+        'razao': 'nunique',
+        'nota': 'count'
+    }).reset_index()
+    
+    clientes_mes['data'] = clientes_mes['data'].astype(str)
+
+    # Gráfico de clientes ativos por mês
+    fig_ativos = go.Figure()
+
+    fig_ativos.add_trace(go.Bar(
+        x=clientes_mes['data'],
+        y=clientes_mes['razao'],
+        name='Clientes Ativos',
+        marker_color='#4169E1',
+        text=clientes_mes['razao'],
+        textposition='auto',
+        hovertemplate='Clientes Ativos: %{y}<extra></extra>'
+    ))
+
+    fig_ativos.update_layout(
+        title='Clientes Ativos por Mês',
+        xaxis_title='Período',
+        yaxis_title='Número de Clientes',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    # Formatar datas no eixo X
+    fig_ativos.update_xaxes(
+        ticktext=[formatar_data_abrev_curta(data) for data in clientes_mes['data']],
+        tickvals=clientes_mes['data']
+    )
+
+    st.plotly_chart(fig_ativos, use_container_width=True)
+
+    # Análise de novos clientes por mês
+    def identificar_novos_clientes(df):
+        # Ordenar DataFrame por cliente e data
+        df_sorted = df.sort_values(['razao', 'data'])
+        
+        # Identificar primeira compra de cada cliente
+        primeira_compra = df_sorted.groupby('razao')['data'].transform('min')
+        
+        # Marcar como novo cliente quando a data for igual à primeira compra
+        df_sorted['novo_cliente'] = df_sorted['data'] == primeira_compra
+        
+        return df_sorted
+
+    df_novos = identificar_novos_clientes(df_filtrado)
+    
+    # Agrupar novos clientes por mês
+    novos_mes = df_novos[df_novos['novo_cliente']].groupby(
+        df_novos['data'].dt.to_period('M')
+    )['razao'].nunique().reset_index()
+    
+    novos_mes['data'] = novos_mes['data'].astype(str)
+
+    # Gráfico de novos clientes por mês
+    fig_novos = go.Figure()
+
+    fig_novos.add_trace(go.Bar(
+        x=novos_mes['data'],
+        y=novos_mes['razao'],
+        name='Novos Clientes',
+        marker_color='#32CD32',
+        text=novos_mes['razao'],
+        textposition='auto',
+        hovertemplate='Novos Clientes: %{y}<extra></extra>'
+    ))
+
+    fig_novos.update_layout(
+        title='Novos Clientes por Mês',
+        xaxis_title='Período',
+        yaxis_title='Número de Clientes',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    # Formatar datas no eixo X
+    fig_novos.update_xaxes(
+        ticktext=[formatar_data_abrev_curta(data) for data in novos_mes['data']],
+        tickvals=novos_mes['data']
+    )
+
+    st.plotly_chart(fig_novos, use_container_width=True)
+
+    # Análise de reativação de clientes
+    def identificar_reativacoes(df):
+        # Ordenar DataFrame por cliente e data
+        df_sorted = df.sort_values(['razao', 'data'])
+        
+        # Calcular diferença de dias entre compras do mesmo cliente
+        df_sorted['dias_ultima_compra'] = df_sorted.groupby('razao')['data'].diff().dt.days
+        
+        # Considerar reativação quando cliente volta após 180 dias
+        df_sorted['reativacao'] = df_sorted['dias_ultima_compra'] > 180
+        
+        return df_sorted
+
+    df_reativacoes = identificar_reativacoes(df_filtrado)
+    
+    # Agrupar reativações por mês
+    reativacoes_mes = df_reativacoes[df_reativacoes['reativacao']].groupby(
+        df_reativacoes['data'].dt.to_period('M')
+    )['razao'].nunique().reset_index()
+    
+    reativacoes_mes['data'] = reativacoes_mes['data'].astype(str)
+
+    # Gráfico de reativações por mês
+    fig_reativ = go.Figure()
+
+    fig_reativ.add_trace(go.Bar(
+        x=reativacoes_mes['data'],
+        y=reativacoes_mes['razao'],
+        name='Clientes Reativados',
+        marker_color='#FFD700',
+        text=reativacoes_mes['razao'],
+        textposition='auto',
+        hovertemplate='Clientes Reativados: %{y}<extra></extra>'
+    ))
+
+    fig_reativ.update_layout(
+        title='Reativação de Clientes por Mês',
+        xaxis_title='Período',
+        yaxis_title='Número de Clientes',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        showlegend=True,
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    # Formatar datas no eixo X
+    fig_reativ.update_xaxes(
+        ticktext=[formatar_data_abrev_curta(data) for data in reativacoes_mes['data']],
+        tickvals=reativacoes_mes['data']
+    )
+
+    st.plotly_chart(fig_reativ, use_container_width=True)
