@@ -59,7 +59,7 @@ with st.sidebar:
         )
     
     # Filtro de estado
-    estados = sorted([uf for uf in df['uf'].unique() if pd.notna(uf)])  # Remove valores nulos
+    estados = sorted([uf for uf in df['uf'].unique() if pd.notna(uf)])
     estados_selecionados = st.multiselect(
         'Estados',
         ['Todos'] + estados,
@@ -77,28 +77,65 @@ if 'Todos' not in estados_selecionados:
 
 df_filtrado = df.loc[mask].copy()
 
-# Métricas principais
-col1, col2, col3, col4 = st.columns(4)
-
-# Total de clientes únicos
+# Agora calcular as métricas com o df_filtrado
 total_clientes = df_filtrado['razao'].nunique()
-with col1:
-    st.metric("Total de Clientes", f"{total_clientes:,}".replace(",", "."))
-
-# Ticket médio por cliente
 ticket_medio = df_filtrado['valorNota'].mean()
-with col2:
-    st.metric("Ticket Médio", formatar_moeda(ticket_medio))
-
-# Média de pedidos por cliente
 media_pedidos = df_filtrado.groupby('razao')['nota'].count().mean()
-with col3:
-    st.metric("Média de Pedidos/Cliente", f"{media_pedidos:.1f}")
-
-# Faturamento total
 faturamento_total = df_filtrado['valorNota'].sum()
-with col4:
-    st.metric("Faturamento Total", formatar_moeda(faturamento_total))
+
+# Adicionar CSS e cards com as métricas
+st.markdown(f"""
+<style>
+    .metric-card {{
+        background-color: #2b2d3e;
+        border-radius: 10px;
+        padding: 15px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        text-align: center;
+        height: 90px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }}
+    .metric-card h3 {{
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 0 auto;
+        opacity: 0.8;
+        padding: 0 5px;
+        margin-bottom: 5px;
+    }}
+    .metric-card h2 {{
+        color: #ffffff;
+        font-size: 20px;
+        margin: 5px auto;
+        padding: 0 5px;
+        white-space: nowrap;
+    }}
+</style>
+
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 15px 0;">
+    <div class="metric-card">
+        <h3>Total de Clientes</h3>
+        <h2>{total_clientes:,}</h2>
+    </div>
+    <div class="metric-card">
+        <h3>Ticket Médio</h3>
+        <h2>{formatar_moeda(ticket_medio)}</h2>
+    </div>
+    <div class="metric-card">
+        <h3>Média de Pedidos</h3>
+        <h2>{media_pedidos:.1f}</h2>
+    </div>
+    <div class="metric-card">
+        <h3>Faturamento Total</h3>
+        <h2>{formatar_moeda(faturamento_total)}</h2>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # Criar abas
 tab1, tab2, tab3 = st.tabs(["📊 Visão Geral", "🌎 Análise Geográfica", "📈 Análise Temporal"])
