@@ -42,7 +42,7 @@ estado_para_iso = {
     'Tocantins': 'BRA-TO'
 }
 
-# Configuraç��������������������o da página
+# Configuraç��������������������������������������o da página
 st.set_page_config(
     page_title="Google Trends - Dashboard de Vendas",
     page_icon="🔍",
@@ -81,7 +81,70 @@ def plot_trends_data(interest_over_time):
         
         # Pegar a primeira coluna (que contém os dados de interesse)
         coluna_dados = interest_over_time.columns[0]
-        st.write("DEBUG - Usando coluna:", coluna_dados)
+        
+        # Estilo CSS para os cards - com fontes maiores
+        st.markdown("""
+        <style>
+        .metric-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .metric-card {
+            background-color: #1E1E1E;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 4px 4px 15px rgba(0,0,0,0.5);
+            flex: 1;
+            min-width: 200px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;  /* Centralizar conteúdo verticalmente */
+        }
+        .metric-card .label {
+            color: #FFFFFF;
+            font-size: 1.2em;        /* Aumentado de 0.9em para 1.2em */
+            margin-bottom: 15px;     /* Aumentado espaço entre label e valor */
+            text-align: center;
+        }
+        .metric-card .value {
+            color: #FFFFFF;
+            font-size: 2em;          /* Aumentado de 1.3em para 2em */
+            font-weight: bold;
+            word-wrap: break-word;
+            margin-bottom: 10px;
+            line-height: 1.2;
+            text-align: center;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Criar os cards de métricas
+        st.markdown("""
+        <div class="metric-container">
+            <div class="metric-card">
+                <div class="label">Média de Interesse</div>
+                <div class="value">{:.1f}</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Máximo Interesse</div>
+                <div class="value">{:.0f}</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Mínimo Interesse</div>
+                <div class="value">{:.0f}</div>
+            </div>
+        </div>
+        """.format(
+            interest_over_time[coluna_dados].mean(),
+            interest_over_time[coluna_dados].max(),
+            interest_over_time[coluna_dados].min()
+        ), unsafe_allow_html=True)
+        
+        # Adicionar espaço após os cards
+        st.markdown("<br>", unsafe_allow_html=True)
         
         # Criar figura do Plotly
         fig = go.Figure()
@@ -123,24 +186,6 @@ def plot_trends_data(interest_over_time):
         
         # Exibir o gráfico
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Exibir estatísticas básicas
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric(
-                "Média de Interesse",
-                f"{interest_over_time[coluna_dados].mean():.1f}"
-            )
-        with col2:
-            st.metric(
-                "Máximo Interesse",
-                f"{interest_over_time[coluna_dados].max():.0f}"
-            )
-        with col3:
-            st.metric(
-                "Mínimo Interesse",
-                f"{interest_over_time[coluna_dados].min():.0f}"
-            )
             
     except Exception as e:
         st.error(f"Erro ao criar o gráfico: {str(e)}")
@@ -227,8 +272,8 @@ def plot_regional_data(interest_by_region, termo):
         return
         
     try:
-        # Primeiro mostrar o quadro explicativo
-        with st.expander("ℹ️ Como interpretar o Mapa de Interesse Regional", expanded=True):
+        # Primeiro mostrar o quadro explicativo - agora recolhido por padrão
+        with st.expander("ℹ️ Como interpretar o Mapa de Interesse Regional", expanded=False):
             st.markdown("""
             ### 🗺️ Mapa de Calor Regional
             
@@ -312,12 +357,52 @@ def plot_regional_data(interest_by_region, termo):
             # Exibir o gráfico
             st.plotly_chart(fig, use_container_width=True)
             
-            # Exibir tabela com os dados
+            # Exibir gráfico de barras horizontais em vez da tabela
             st.write("### Dados por Estado")
-            df_display = interest_by_region.copy()
-            df_display.columns = ['Interesse']
-            df_display = df_display.sort_values('Interesse', ascending=False)
-            st.dataframe(df_display)
+            
+            # Preparar dados para o gráfico
+            df_barras = interest_by_region.copy()
+            df_barras.index = [estado.replace('BR-', '') for estado in df_barras.index]
+            df_barras.columns = ['Interesse']
+            df_barras = df_barras.sort_values('Interesse', ascending=True)  # Ordenar do menor para o maior
+            
+            # Criar gráfico de barras horizontais
+            fig_barras = go.Figure()
+            
+            fig_barras.add_trace(
+                go.Bar(
+                    x=df_barras['Interesse'],
+                    y=df_barras.index,
+                    orientation='h',
+                    marker_color='#1f77b4',  # Cor similar à do gráfico de linha
+                    text=df_barras['Interesse'].round(1),  # Mostrar valores nas barras
+                    textposition='auto',
+                )
+            )
+            
+            # Configurar layout
+            fig_barras.update_layout(
+                title=f'Interesse por Estado - {termo}',
+                xaxis_title='Interesse (0-100)',
+                yaxis_title=None,
+                height=max(400, len(df_barras) * 25),  # Altura dinâmica baseada no número de estados
+                template='plotly_dark',
+                margin=dict(l=10, r=10, t=30, b=10),
+                showlegend=False,
+                xaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='rgba(128, 128, 128, 0.2)',
+                ),
+                yaxis=dict(
+                    showgrid=False,
+                ),
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+            )
+            
+            # Exibir o gráfico
+            st.plotly_chart(fig_barras, use_container_width=True)
             
         except requests.exceptions.RequestException as e:
             st.error(f"Erro ao carregar GeoJSON: {str(e)}")
@@ -394,12 +479,26 @@ def plot_related_topics(related_topics):
     except Exception as e:
         st.info(f"Não foi possível criar o gráfico de tópicos relacionados: {str(e)}")
 
+# Inicializar session_state se necessário
+if 'limpar_campos' not in st.session_state:
+    st.session_state.limpar_campos = False
+
+# Função para limpar campos
+def limpar_campos():
+    st.session_state.limpar_campos = True
+    st.session_state.empresa = ""
+
 # Sidebar para configurações
 with st.sidebar:
     st.header("Configurações da Análise")
     
     # Campo para nome da empresa
-    empresa = st.text_input("Nome da Empresa")
+    if st.session_state.limpar_campos:
+        # Reset o flag de limpeza
+        st.session_state.limpar_campos = False
+        empresa = st.text_input("Nome da Empresa", value="", key="empresa")
+    else:
+        empresa = st.text_input("Nome da Empresa", key="empresa")
     
     # Seleção de período
     periodos = {
@@ -423,8 +522,26 @@ with st.sidebar:
         index=0
     )
     
-    # Botão de pesquisa
-    pesquisar = st.button("🔍 Realizar Pesquisa", type="primary")
+    # Adicionar espaço antes dos botões
+    st.write("")
+    
+    # Criar dois botões lado a lado com mesmo tamanho e estilo
+    col1, space, col2 = st.columns([10, 1, 10])
+    
+    with col1:
+        pesquisar = st.button(
+            "🔍 Pesquisar", 
+            type="primary", 
+            use_container_width=True
+        )
+    
+    with col2:
+        limpar = st.button(
+            "🔄 Limpar", 
+            type="primary",
+            use_container_width=True,
+            on_click=limpar_campos
+        )
 
 # Depois de definir todas as funções, colocar o código principal
 if not empresa:
