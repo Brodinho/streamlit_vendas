@@ -142,63 +142,20 @@ tab1, tab2, tab3 = st.tabs(["📊 Visão Geral", "🌎 Análise Geográfica", "�
 
 # Aba Visão Geral
 with tab1:
-    # Estilo CSS personalizado
-    st.markdown("""
-    <style>
-        .recency-box {
-            background-color: #2b2d3e;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-        }
-        .recency-title {
-            color: #ffffff;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .recency-intro {
-            color: #ffffff;
-            margin-bottom: 20px;
-        }
-        .recency-item {
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-            color: #ffffff;
-        }
-        .recency-conclusion {
-            color: #ffffff;
-            margin-top: 20px;
-            font-style: italic;
-        }
-    </style>
-    
-    <div class="recency-box">
-        <div class="recency-title">
-            📊 Análise de Recência
-        </div>
-        <div class="recency-intro">
-            A análise de recência é uma métrica fundamental para entender o comportamento dos clientes 
-            e seu nível de engajamento com a empresa. Ela é baseada no tempo decorrido desde a última compra:
-        </div>
-        <div class="recency-item">
-            ✅ <strong>Últimos 30 dias</strong>: Clientes ativos e engajados, que mantêm uma relação comercial recente e frequente
-        </div>
-        <div class="recency-item">
-            ⚠️ <strong>31-90 dias</strong>: Clientes que precisam de atenção, pois estão se afastando do ciclo regular de compras
-        </div>
-        <div class="recency-item">
-            🚨 <strong>91-180 dias</strong>: Clientes em risco de abandono, necessitando de ações de retenção
-        </div>
-        <div class="recency-item">
-            ❗ <strong>Mais de 180 dias</strong>: Clientes inativos que precisam ser recuperados através de estratégias específicas
-        </div>
-        <div class="recency-conclusion">
-            O gráfico abaixo mostra a distribuição dos clientes nestas categorias:
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Substituir o box atual por um expander
+    with st.expander("ℹ️ Sobre a Análise de Recência"):
+        st.markdown("""
+        A análise de recência é uma métrica fundamental para entender o comportamento dos clientes 
+        e seu nível de engajamento com a empresa. Ela é baseada no tempo decorrido desde a última compra:
+        
+        ✅ **Últimos 30 dias**: Clientes ativos e engajados, que mantêm uma relação comercial recente e frequente
+        
+        ⚠️ **31-90 dias**: Clientes que precisam de atenção, pois estão se afastando do ciclo regular de compras
+        
+        🚨 **91-180 dias**: Clientes em risco de abandono, necessitando de ações de retenção
+        
+        ❗ **Mais de 180 dias**: Clientes inativos que precisam ser recuperados através de estratégias específicas
+        """)
 
     # Recência
     df_recencia = df_filtrado.groupby('razao')['data'].max().apply(lambda x: (datetime.now() - x).days)
@@ -227,36 +184,38 @@ with tab1:
     # Separador para nova seção
     st.divider()
 
-    # Título da seção complementar
+    # Título e subtítulo da seção
     st.markdown("""
-    <style>
-        .engagement-box {
-            background-color: #2b2d3e;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-        }
-        .engagement-title {
-            color: #ffffff;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .engagement-intro {
-            color: #ffffff;
-            margin-bottom: 20px;
-        }
-    </style>
-    
-    <div class="engagement-box">
-        <div class="engagement-title">
-            📊 Indicadores de Conversão e Engajamento
-        </div>
-        <div class="engagement-intro">
-            Análise da evolução do engajamento dos clientes e efetividade das ações de reativação.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    ### 📊 Indicadores de Conversão e Engajamento
+    Análise da evolução do engajamento dos clientes e efetividade das ações de reativação.
+    """)
+
+    # Expander com o texto explicativo
+    with st.expander("ℹ️ Sobre os Indicadores de Conversão e Engajamento"):
+        st.markdown("""
+        Os indicadores de conversão e engajamento são essenciais para avaliar a efetividade das 
+        estratégias de relacionamento com clientes. Eles são baseados em diferentes métricas:
+
+        📈 **Taxa de Conversão de Inativos**
+        * Mede o sucesso na reativação de clientes inativos
+        * Indica a efetividade das campanhas de reativação
+        * Permite avaliar o retorno das ações de recuperação
+
+        ⏱️ **Recência Média das Compras**
+        * Monitora o intervalo médio entre compras
+        * Ajuda a identificar tendências de afastamento
+        * Permite ações preventivas de retenção
+
+        🎯 **Indicadores de Performance**
+        * Acompanhamento da evolução mensal
+        * Comparação com períodos anteriores
+        * Identificação de pontos de melhoria
+
+        💡 **Insights Estratégicos**
+        * Base para definição de metas de retenção
+        * Suporte para campanhas personalizadas
+        * Otimização de investimentos em marketing
+        """)
 
     # Calcular taxa de conversão de inativos para ativos
     def calcular_taxa_conversao(df):
