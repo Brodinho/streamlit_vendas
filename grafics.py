@@ -530,3 +530,67 @@ def criar_grafico_barras_categoria(df_filtrado):
     )
     
     return fig
+
+def criar_grafico_taxa_conversao(df_conversao):
+    fig = go.Figure()
+    
+    # Formatar datas para o hover (apenas mês e ano em português)
+    datas_formatadas = []
+    
+    # Dicionário de meses em português (invertido)
+    meses_pt_invertido = {
+        'janeiro': 'Janeiro',
+        'fevereiro': 'Fevereiro',
+        'março': 'Março',
+        'abril': 'Abril',
+        'maio': 'Maio',
+        'junho': 'Junho',
+        'julho': 'Julho',
+        'agosto': 'Agosto',
+        'setembro': 'Setembro',
+        'outubro': 'Outubro',
+        'novembro': 'Novembro',
+        'dezembro': 'Dezembro'
+    }
+    
+    for data in df_conversao['data']:
+        mes = data.strftime('%B').lower()  # Pega o mês em português minúsculo
+        mes_formatado = meses_pt_invertido.get(mes, mes.capitalize())  # Traduz para o formato desejado
+        ano = data.strftime('%Y')  # Pega o ano
+        data_formatada = f"{mes_formatado}/{ano}"
+        datas_formatadas.append(data_formatada)
+
+    fig.add_trace(go.Scatter(
+        x=df_conversao['data'],
+        y=df_conversao['taxa_conversao'],
+        mode='lines',
+        line=dict(color='#1f77b4'),
+        customdata=list(zip(datas_formatadas, df_conversao['taxa_conversao'])),
+        hoverinfo='text',
+        # Formatação do hover com data em destaque
+        hovertext=[f"<b>{data}</b><br><br>Taxa de Conversão: {taxa:.1f}%" 
+                  for data, taxa in zip(datas_formatadas, df_conversao['taxa_conversao'])],
+        showlegend=False
+    ))
+
+    fig.update_layout(
+        title='Taxa de Conversão de Clientes Inativos para Ativos',
+        xaxis_title='Período',
+        yaxis_title='Taxa de Conversão (%)',
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="rgba(0,0,0,0.8)",
+            font_size=14
+        ),
+        xaxis=dict(
+            showspikes=False,
+            showline=True,
+            showgrid=True
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white"),
+        height=400
+    )
+    
+    return fig

@@ -26,7 +26,7 @@ sys.path.append(str(root_path))
 # Importações locais
 from dataset import df
 from utils import formatar_moeda, meses_abrev_pt, formatar_data_abrev, formatar_data_abrev_curta
-from grafics import coordenadas_estados, coordenadas_paises, siglas_estados, extrair_sigla_pais
+from grafics import coordenadas_estados, coordenadas_paises, siglas_estados, extrair_sigla_pais, criar_grafico_taxa_conversao
 
 # Configurar locale para português brasileiro
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
@@ -257,33 +257,8 @@ with tab1:
     # Calcular taxa de conversão
     df_conversao = calcular_taxa_conversao(df_filtrado)
 
-    # Gráfico de taxa de conversão
-    fig_conversao = go.Figure()
-
-    fig_conversao.add_trace(go.Scatter(
-        x=df_conversao['data'],
-        y=df_conversao['taxa_conversao'],
-        name='Taxa de Conversão',
-        line=dict(color='#4169E1', width=2),
-        hovertemplate='Taxa de Conversão: %{y:.1f}%<extra></extra>'
-    ))
-
-    fig_conversao.update_layout(
-        title='Taxa de Conversão de Clientes Inativos para Ativos',
-        xaxis_title='Período',
-        yaxis_title='Taxa de Conversão (%)',
-        hovermode='x unified',
-        hoverlabel=dict(
-            bgcolor="rgba(0,0,0,0.8)",
-            font_size=14
-        ),
-        showlegend=True,
-        height=400,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white")
-    )
-
+    # Criar e exibir o gráfico usando a função centralizada
+    fig_conversao = criar_grafico_taxa_conversao(df_conversao)
     st.plotly_chart(fig_conversao, use_container_width=True)
 
     # Calcular e plotar evolução da recência média
@@ -710,7 +685,7 @@ with tab2:
             height=400,
             showlegend=True,
             legend=dict(
-                title="Localização",
+                title="Localiza��ão",
                 yanchor="top",
                 y=0.99,
                 xanchor="left",
