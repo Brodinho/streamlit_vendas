@@ -259,6 +259,13 @@ with tab1:
 
     # Criar e exibir o gráfico usando a função centralizada
     fig_conversao = criar_grafico_taxa_conversao(df_conversao)
+
+    # Atualizar apenas o eixo x para mostrar só o ano, mantendo hover completo
+    fig_conversao.update_xaxes(
+        ticktext=[data.strftime('%Y') for data in df_conversao['data']],
+        tickvals=df_conversao['data']
+    )
+
     st.plotly_chart(fig_conversao, use_container_width=True)
 
     # Calcular e plotar evolução da recência média
@@ -284,7 +291,7 @@ with tab1:
     # Gráfico de evolução da recência média
     fig_recencia = go.Figure()
 
-    # Formatar datas para o hover (apenas mês e ano em português)
+    # Formatar datas para o hover (mês e ano em português)
     datas_formatadas = []
 
     # Dicionário de meses em inglês para português
@@ -304,9 +311,9 @@ with tab1:
     }
 
     for data in df_recencia['data']:
-        mes = data.strftime('%B').lower()  # Pega o mês em inglês minúsculo
-        mes_formatado = meses_en_pt.get(mes, mes.capitalize())  # Traduz direto do inglês para português
-        ano = data.strftime('%Y')  # Pega o ano
+        mes = data.strftime('%B').lower()
+        mes_formatado = meses_en_pt.get(mes, mes.capitalize())
+        ano = data.strftime('%Y')
         data_formatada = f"{mes_formatado}/{ano}"
         datas_formatadas.append(data_formatada)
 
@@ -324,7 +331,7 @@ with tab1:
 
     fig_recencia.update_layout(
         title='Evolução da Recência Média das Compras',
-        xaxis_title='Período',
+        xaxis_title='',
         yaxis_title='Dias desde a última compra',
         hovermode='x unified',
         hoverlabel=dict(
@@ -334,7 +341,9 @@ with tab1:
         xaxis=dict(
             showspikes=False,
             showline=True,
-            showgrid=True
+            showgrid=True,
+            ticktext=[data.strftime('%Y') for data in df_recencia['data']],
+            tickvals=df_recencia['data']
         ),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",

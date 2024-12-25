@@ -575,7 +575,7 @@ def criar_grafico_taxa_conversao(df_conversao):
 
     fig.update_layout(
         title='Taxa de Conversão de Clientes Inativos para Ativos',
-        xaxis_title='Período',
+        # xaxis_title='Período',
         yaxis_title='Taxa de Conversão (%)',
         hovermode='x unified',
         hoverlabel=dict(
@@ -638,7 +638,7 @@ def criar_grafico_recencia_media(df_recencia):
 
     fig.update_layout(
         title='Evolução da Recência Média das Compras',
-        xaxis_title='Período',
+        # xaxis_title='Período',
         yaxis_title='Dias desde a última compra',
         hovermode='x unified',
         hoverlabel=dict(
