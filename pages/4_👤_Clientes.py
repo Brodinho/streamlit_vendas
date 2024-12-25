@@ -454,8 +454,47 @@ with tab1:
     df_clientes = df_clientes.sort_values('Status_ordem')
     df_clientes = df_clientes.drop('Status_ordem', axis=1)
 
-    # Adicionar filtro de status
-    st.subheader("Filtrar por Status")
+    # Adicionar separador
+    st.divider()
+
+    # Calcular os valores dos insights
+    n_ativos = len(df_clientes[df_clientes['Status'] == 'Cliente ativo e engajado'])
+    n_atencao = len(df_clientes[df_clientes['Status'] == 'Cliente que precisa de atenção'])
+    n_risco = len(df_clientes[df_clientes['Status'] == 'Cliente em risco de abandono'])
+    n_inativos = len(df_clientes[df_clientes['Status'] == 'Cliente inativo que precisa ser recuperado'])
+
+    # Título com ícone
+    st.markdown("""
+        <h2 style='display: flex; align-items: center; gap: 10px; margin-bottom: 20px;'>
+            <span style='font-size: 1.5em;'>🎯</span> 
+            Indicadores de Performance
+        </h2>
+    """, unsafe_allow_html=True)
+
+    # Grid de métricas
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("Clientes Ativos", n_ativos)
+        
+    with col2:
+        st.metric("Precisam de Atenção", n_atencao)
+        
+    with col3:
+        st.metric("Em Risco", n_risco)
+        
+    with col4:
+        st.metric("Inativos", n_inativos)
+
+    # Título dos Insights Estratégicos
+    st.markdown("""
+        <h3 style='display: flex; align-items: center; gap: 10px; margin: 20px 0;'>
+            <span style='font-size: 1.2em;'>💡</span> 
+            Insights Estratégicos
+        </h3>
+    """, unsafe_allow_html=True)
+
+    # Filtro de status
     status_selecionados = st.multiselect(
         'Selecione os status que deseja visualizar:',
         options=ordem_status,
@@ -469,8 +508,7 @@ with tab1:
     else:
         df_clientes_filtrado = df_clientes
 
-    # Exibir tabela com estilo
-    st.subheader("Status dos Clientes")
+    # Exibir o dataframe
     st.dataframe(
         df_clientes_filtrado.style.applymap(
             highlight_status,
@@ -479,25 +517,6 @@ with tab1:
         use_container_width=True,
         hide_index=True
     )
-
-    # Atualizar métricas baseado no DataFrame filtrado
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        n_ativos = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente ativo e engajado'])
-        st.metric("Clientes Ativos", n_ativos)
-
-    with col2:
-        n_atencao = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente que precisa de atenção'])
-        st.metric("Precisam de Atenção", n_atencao)
-
-    with col3:
-        n_risco = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente em risco de abandono'])
-        st.metric("Em Risco", n_risco)
-
-    with col4:
-        n_inativos = len(df_clientes_filtrado[df_clientes_filtrado['Status'] == 'Cliente inativo que precisa ser recuperado'])
-        st.metric("Inativos", n_inativos)
 
 # Aba Análise Geográfica
 with tab2:
