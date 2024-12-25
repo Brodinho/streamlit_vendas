@@ -284,12 +284,42 @@ with tab1:
     # Gráfico de evolução da recência média
     fig_recencia = go.Figure()
 
+    # Formatar datas para o hover (apenas mês e ano em português)
+    datas_formatadas = []
+
+    # Dicionário de meses em inglês para português
+    meses_en_pt = {
+        'january': 'Janeiro',
+        'february': 'Fevereiro',
+        'march': 'Março',
+        'april': 'Abril',
+        'may': 'Maio',
+        'june': 'Junho',
+        'july': 'Julho',
+        'august': 'Agosto',
+        'september': 'Setembro',
+        'october': 'Outubro',
+        'november': 'Novembro',
+        'december': 'Dezembro'
+    }
+
+    for data in df_recencia['data']:
+        mes = data.strftime('%B').lower()  # Pega o mês em inglês minúsculo
+        mes_formatado = meses_en_pt.get(mes, mes.capitalize())  # Traduz direto do inglês para português
+        ano = data.strftime('%Y')  # Pega o ano
+        data_formatada = f"{mes_formatado}/{ano}"
+        datas_formatadas.append(data_formatada)
+
     fig_recencia.add_trace(go.Scatter(
         x=df_recencia['data'],
         y=df_recencia['recencia_media'],
-        name='Recência Média',
-        line=dict(color='#32CD32', width=2),
-        hovertemplate='Recência Média: %{y:.0f} dias<extra></extra>'
+        mode='lines',
+        line=dict(color='#00FF00'),
+        customdata=list(zip(datas_formatadas, df_recencia['recencia_media'])),
+        hoverinfo='text',
+        hovertext=[f"<b>{data}</b><br><br>Recência Média: {recencia:.0f} dias" 
+                  for data, recencia in zip(datas_formatadas, df_recencia['recencia_media'])],
+        name='Recência Média'
     ))
 
     fig_recencia.update_layout(
@@ -301,11 +331,15 @@ with tab1:
             bgcolor="rgba(0,0,0,0.8)",
             font_size=14
         ),
-        showlegend=True,
-        height=400,
+        xaxis=dict(
+            showspikes=False,
+            showline=True,
+            showgrid=True
+        ),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white")
+        font=dict(color="white"),
+        height=400
     )
 
     st.plotly_chart(fig_recencia, use_container_width=True)
@@ -685,7 +719,7 @@ with tab2:
             height=400,
             showlegend=True,
             legend=dict(
-                title="Localiza��ão",
+                title="Localização",
                 yanchor="top",
                 y=0.99,
                 xanchor="left",
