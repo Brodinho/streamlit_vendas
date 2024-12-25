@@ -508,12 +508,35 @@ with tab1:
     else:
         df_clientes_filtrado = df_clientes
 
+    # Antes de exibir o dataframe, calcular a recência
+    # Converter a coluna 'Última Compra' para datetime se ainda não estiver
+    df_clientes_filtrado['Última Compra'] = pd.to_datetime(df_clientes_filtrado['Última Compra'], format='%d/%m/%Y')
+
+    # Calcular a recência em dias
+    df_clientes_filtrado['Recência'] = (datetime.now() - df_clientes_filtrado['Última Compra']).dt.days
+
+    # Voltar a última compra para o formato string
+    df_clientes_filtrado['Última Compra'] = df_clientes_filtrado['Última Compra'].dt.strftime('%d/%m/%Y')
+
+    # Reordenar as colunas para incluir a Recência após a Última Compra
+    df_clientes_filtrado = df_clientes_filtrado[[
+        'Código',
+        'Razão Social',
+        'Documento',
+        'Primeira Compra',
+        'Última Compra',
+        'Recência',
+        'Status'
+    ]]
+
     # Exibir o dataframe
     st.dataframe(
         df_clientes_filtrado.style.applymap(
             highlight_status,
             subset=['Status']
-        ),
+        ).format({
+            'Recência': '{} dias'  # Formatar a coluna Recência para mostrar "X dias"
+        }),
         use_container_width=True,
         hide_index=True
     )
